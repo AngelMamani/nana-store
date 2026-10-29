@@ -24,12 +24,12 @@ const CURRENT_YEAR = new Date().getFullYear()
 
 const STORE_LOCATION = {
   address: "Jr. Amazonas 890 (esq. con Av. Madre de Dios), Puerto Maldonado",
-  lat: -12.5958,
-  lng: -69.1921,
+  lat: -12.596538,
+  lng: -69.191129,
   mapEmbedUrl:
-    "https://maps.google.com/maps?q=-12.5958,-69.1921&hl=es&z=17&output=embed",
+    "https://maps.google.com/maps?q=-12.596538,-69.191129&hl=es&z=17&output=embed",
   mapDirectUrl:
-    "https://www.google.com/maps/search/?api=1&query=-12.5958,-69.1921",
+    "https://www.google.com/maps/search/?api=1&query=-12.596538,-69.191129",
 }
 
 const CLOTHING_SLUGS = new Set([
