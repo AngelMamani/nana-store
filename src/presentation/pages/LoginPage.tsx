@@ -2,9 +2,12 @@ import { useState, type FormEvent } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { authErrorMessage } from "../auth/auth-error.ts"
 import { useAuth } from "../auth/auth-context.ts"
+import { container } from "../../infrastructure/composition/container.ts"
+import { GoogleIcon } from "../components/Icons.tsx"
 import loginBackground from "../../assets/login.png"
 
 export function LoginPage() {
+  const store = container.getStore()
   const auth = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState("")
@@ -33,7 +36,7 @@ export function LoginPage() {
       <div className="fullscreen-auth__backdrop" />
 
       {/* Botón flotante para regresar a la tienda */}
-      <Link to="/" className="fullscreen-auth__back-btn" title="Volver a la tienda">
+      <Link to="/" className="fullscreen-auth__back-btn" aria-label="Volver a la tienda">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <line x1="19" y1="12" x2="5" y2="12" />
           <polyline points="12 19 5 12 12 5" />
@@ -44,13 +47,9 @@ export function LoginPage() {
       <div className="fullscreen-auth__container">
         <div className="fullscreen-auth__card">
           <div className="fullscreen-auth__header">
-            <Link to="/" className="fullscreen-auth__brand">
-              <span className="brand-dot" />
-              <strong>NaNa</strong>
+            <Link to="/" className="fullscreen-auth__brand-circle" title="Ir a inicio">
+              <img src={store.logo} alt={store.name} />
             </Link>
-            <span className="fullscreen-auth__tag">Acceso Exclusivo</span>
-            <h1>¡Hola de nuevo!</h1>
-            <p>Ingresa tus datos para continuar con tus compras y pedidos.</p>
           </div>
 
           <form className="fullscreen-auth__form" onSubmit={onSubmit}>
@@ -111,6 +110,30 @@ export function LoginPage() {
               ) : (
                 <span>Iniciar sesión</span>
               )}
+            </button>
+
+            <div className="auth-separator">
+              <span>o continúa con</span>
+            </div>
+
+            <button
+              type="button"
+              className="btn-google"
+              onClick={async () => {
+                setPending(true)
+                setError("")
+                const result = await auth.loginWithGoogle()
+                setPending(false)
+                if (result.ok) {
+                  navigate("/cuenta")
+                } else {
+                  setError("No se pudo iniciar sesión con Google")
+                }
+              }}
+              disabled={pending}
+            >
+              <GoogleIcon />
+              <span>Continuar con Google</span>
             </button>
           </form>
 

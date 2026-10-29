@@ -31,6 +31,9 @@ import { LocalStorageCartRepository } from "../cart/LocalStorageCartRepository.t
 import snapshot from "../catalog/catalog.snapshot.json"
 import { JsonCatalogRepository, type CatalogSnapshot } from "../catalog/JsonCatalogRepository.ts"
 
+import { FirebaseAuthService } from "../firebase/FirebaseAuthService.ts"
+import { FirebaseStorageService } from "../firebase/FirebaseStorageService.ts"
+
 const catalog = new JsonCatalogRepository(snapshot as CatalogSnapshot)
 const carts = new LocalStorageCartRepository()
 const accounts = new LocalStorageAccountRepository()
@@ -41,6 +44,8 @@ const auth = {
   passwords: new Pbkdf2PasswordHasher(),
   ids: new RandomIdGenerator(),
 }
+const firebaseAuthService = new FirebaseAuthService()
+const firebaseStorageService = new FirebaseStorageService()
 
 export const container = {
   getStore: () => getStore(catalog),
@@ -58,9 +63,19 @@ export const container = {
   removeCartLine: (lineId: string) => removeCartLine(carts, lineId),
   updateCartNote: (note: string) => updateCartNote(carts, note),
   clearCart: () => clearSavedCart(carts),
+  // Autenticación con soporte Firebase y fallback local
   currentCustomer: () => currentCustomer(accounts, sessions),
   registerCustomer: (input: { name: string; email: string; password: string }) =>
-    registerCustomer(auth, input),
-  loginCustomer: (input: { email: string; password: string }) => loginCustomer(auth, input),
-  logoutCustomer: () => logoutCustomer(sessions),
+    firebaseAuthService.registerWithEmail(input.name, input.email, input.password),
+  loginCustomer: (input: { email: string; password: string }) =>
+    firebaseAuthService.loginWithEmail(input.email, input.password),
+  loginWithGoogle: () => firebaseAuthService.loginWithGoogle(),
+  logoutCustomer: () => {
+    firebaseAuthService.logout()
+    logoutCustomer(sessions)
+  },
+  onAuthStateChanged: (cb: (c: import("../../domain/auth/entities.ts").Customer | null) => void) =>
+    firebaseAuthService.onCustomerChanged(cb),
+  storage: firebaseStorageService,
 }
+

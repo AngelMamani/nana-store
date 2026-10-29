@@ -3,7 +3,9 @@ import type { AuthResult, Customer } from "../../domain/auth/entities.ts"
 
 export type AuthContextValue = {
   customer: Customer | null
+  loading: boolean
   login: (email: string, password: string) => Promise<AuthResult<Customer>>
+  loginWithGoogle: () => Promise<AuthResult<Customer>>
   register: (name: string, email: string, password: string) => Promise<AuthResult<Customer>>
   logout: () => void
 }
