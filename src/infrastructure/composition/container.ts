@@ -1,4 +1,10 @@
 import {
+  currentCustomer,
+  loginCustomer,
+  logoutCustomer,
+  registerCustomer,
+} from "../../application/auth/authenticate.ts"
+import {
   addProductToCart,
   changeCartQuantity,
   clearSavedCart,
@@ -17,12 +23,24 @@ import {
 } from "../../application/catalog/browse-catalog.ts"
 import type { ProductSort } from "../../domain/catalog/search.ts"
 import type { NewCartLine } from "../../domain/cart/cart.ts"
+import { LocalStorageAccountRepository } from "../auth/LocalStorageAccountRepository.ts"
+import { LocalStorageSessionRepository } from "../auth/LocalStorageSessionRepository.ts"
+import { Pbkdf2PasswordHasher } from "../auth/Pbkdf2PasswordHasher.ts"
+import { RandomIdGenerator } from "../auth/RandomIdGenerator.ts"
 import { LocalStorageCartRepository } from "../cart/LocalStorageCartRepository.ts"
 import snapshot from "../catalog/catalog.snapshot.json"
 import { JsonCatalogRepository, type CatalogSnapshot } from "../catalog/JsonCatalogRepository.ts"
 
 const catalog = new JsonCatalogRepository(snapshot as CatalogSnapshot)
 const carts = new LocalStorageCartRepository()
+const accounts = new LocalStorageAccountRepository()
+const sessions = new LocalStorageSessionRepository()
+const auth = {
+  accounts,
+  sessions,
+  passwords: new Pbkdf2PasswordHasher(),
+  ids: new RandomIdGenerator(),
+}
 
 export const container = {
   getStore: () => getStore(catalog),
@@ -40,4 +58,9 @@ export const container = {
   removeCartLine: (lineId: string) => removeCartLine(carts, lineId),
   updateCartNote: (note: string) => updateCartNote(carts, note),
   clearCart: () => clearSavedCart(carts),
+  currentCustomer: () => currentCustomer(accounts, sessions),
+  registerCustomer: (input: { name: string; email: string; password: string }) =>
+    registerCustomer(auth, input),
+  loginCustomer: (input: { email: string; password: string }) => loginCustomer(auth, input),
+  logoutCustomer: () => logoutCustomer(sessions),
 }

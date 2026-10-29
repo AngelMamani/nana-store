@@ -13,6 +13,7 @@ import {
 } from "../../domain/catalog/pricing.ts"
 import { buildProductInterestMessage } from "../../domain/ordering/whatsapp-order.ts"
 import { container } from "../../infrastructure/composition/container.ts"
+import { useAuth } from "../auth/auth-context.ts"
 import { useCart } from "../cart/cart-context.ts"
 
 function initialSelection(product: Product) {
@@ -28,6 +29,7 @@ function ProductDetail({ product }: { product: Product }) {
   const navigate = useNavigate()
   const store = container.getStore()
   const cart = useCart()
+  const auth = useAuth()
   const [selection, setSelection] = useState(() => initialSelection(product))
   const [quantity, setQuantity] = useState(1)
   const [photo, setPhoto] = useState<string | null>(product.image)
@@ -59,7 +61,7 @@ function ProductDetail({ product }: { product: Product }) {
   const compareAt = needsChoice ? null : selectedCompareAt(product, selection)
   const stockLimit = variant?.stock ?? null
   const activePhoto = photo ?? selectedImage(product, selection)
-  const interest = `https://wa.me/${store.whatsapp}?text=${encodeURIComponent(buildProductInterestMessage(product.name))}`
+  const interest = `https://wa.me/${store.whatsapp}?text=${encodeURIComponent(buildProductInterestMessage(product.name, auth.customer?.name))}`
 
   function choose(name: string, title: string) {
     const next = { ...selection, [name]: title }

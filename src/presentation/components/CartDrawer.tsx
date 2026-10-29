@@ -1,12 +1,14 @@
 import { buildOrderMessage } from "../../domain/ordering/whatsapp-order.ts"
 import { formatPen } from "../../domain/catalog/money.ts"
 import { container } from "../../infrastructure/composition/container.ts"
+import { useAuth } from "../auth/auth-context.ts"
 import { useCart } from "../cart/cart-context.ts"
 
 export function CartDrawer() {
   const cartState = useCart()
+  const auth = useAuth()
   const store = container.getStore()
-  const message = buildOrderMessage(store.name, cartState.cart)
+  const message = buildOrderMessage(store.name, cartState.cart, auth.customer?.name)
   const whatsappHref = `https://wa.me/${store.whatsapp}?text=${encodeURIComponent(message)}`
 
   return (
