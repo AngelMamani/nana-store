@@ -3,6 +3,7 @@ import { AuthProvider } from "./auth/AuthProvider.tsx"
 import { CartProvider } from "./cart/CartProvider.tsx"
 import { StoreShell } from "./components/StoreShell.tsx"
 import { AccountPage } from "./pages/AccountPage.tsx"
+import { AdminPage } from "./pages/AdminPage.tsx"
 import { CategoryPage } from "./pages/CategoryPage.tsx"
 import { HomePage } from "./pages/HomePage.tsx"
 import { LoginPage } from "./pages/LoginPage.tsx"
@@ -19,6 +20,7 @@ export function App() {
             {/* Rutas de autenticación a pantalla completa sin header ni footer */}
             <Route path="entrar" element={<LoginPage />} />
             <Route path="registro" element={<RegisterPage />} />
+            <Route path="admin" element={<AdminPage />} />
 
             <Route element={<StoreShell />}>
               <Route index element={<HomePage />} />

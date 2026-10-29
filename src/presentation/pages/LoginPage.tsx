@@ -25,7 +25,12 @@ export function LoginPage() {
       setError(authErrorMessage(result.error))
       return
     }
-    navigate("/cuenta")
+    const userRole = result.value.role
+    if (userRole === "desarrollador" || userRole === "administrador") {
+      navigate("/admin")
+    } else {
+      navigate("/cuenta")
+    }
   }
 
   return (
@@ -125,7 +130,12 @@ export function LoginPage() {
                 const result = await auth.loginWithGoogle()
                 setPending(false)
                 if (result.ok) {
-                  navigate("/cuenta")
+                  const userRole = result.value.role
+                  if (userRole === "desarrollador" || userRole === "administrador") {
+                    navigate("/admin")
+                  } else {
+                    navigate("/cuenta")
+                  }
                 } else {
                   setError("No se pudo iniciar sesión con Google")
                 }
