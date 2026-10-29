@@ -16,13 +16,15 @@ export function App() {
       <AuthProvider>
         <CartProvider>
           <Routes>
+            {/* Rutas de autenticación a pantalla completa sin header ni footer */}
+            <Route path="entrar" element={<LoginPage />} />
+            <Route path="registro" element={<RegisterPage />} />
+
             <Route element={<StoreShell />}>
               <Route index element={<HomePage />} />
               <Route path="c/:slug" element={<CategoryPage />} />
               <Route path="p/:productId" element={<ProductPage />} />
               <Route path="buscar" element={<SearchPage />} />
-              <Route path="entrar" element={<LoginPage />} />
-              <Route path="registro" element={<RegisterPage />} />
               <Route path="cuenta" element={<AccountPage />} />
               <Route
                 path="*"

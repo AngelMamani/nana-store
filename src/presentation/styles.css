@@ -834,34 +834,328 @@ legend { font-weight: 800; margin-bottom: 8px; }
   color: white;
 }
 
+/* =========================================================
+   FULLSCREEN AUTH (LOGIN & REGISTER SIN HEADER NI FOOTER)
+   ========================================================= */
+.fullscreen-auth {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end; /* En escritorio se ubica hacia el lado derecho para lucir la imagen */
+  overflow: hidden;
+  z-index: 1000;
+}
+
+/* Capa de iluminación y gradiente profesional sobre la imagen */
+.fullscreen-auth__backdrop {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 240, 245, 0.1) 0%,
+    rgba(255, 240, 245, 0.3) 40%,
+    rgba(255, 235, 242, 0.82) 75%,
+    rgba(255, 235, 242, 0.94) 100%
+  );
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  pointer-events: none;
+}
+
+/* Botón flotante para regresar a la tienda */
+.fullscreen-auth__back-btn {
+  position: absolute;
+  top: 24px;
+  left: 28px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 700;
+  text-decoration: none;
+  padding: 10px 18px;
+  border-radius: 999px;
+  box-shadow: 0 4px 18px rgba(43, 36, 48, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  transition: all 0.2s ease;
+}
+
+.fullscreen-auth__back-btn:hover {
+  background: #ffffff;
+  color: var(--pink);
+  transform: translateX(-2px);
+  box-shadow: 0 6px 22px rgba(224, 78, 142, 0.16);
+}
+
+.fullscreen-auth__container {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 520px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 36px 24px 20px;
+}
+
+/* Tarjeta Glassmorphism ultra premium */
+.fullscreen-auth__card {
+  width: 100%;
+  max-width: 440px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  border-radius: 30px;
+  padding: 36px 34px;
+  box-shadow: 0 25px 60px rgba(43, 36, 48, 0.14), 0 0 1px 1px rgba(255, 255, 255, 0.9);
+  animation: authCardIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes authCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.fullscreen-auth__header {
+  margin-bottom: 22px;
+}
+
+.fullscreen-auth__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  margin-bottom: 12px;
+}
+
+.fullscreen-auth__brand strong {
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--ink);
+  letter-spacing: -0.5px;
+}
+
+.brand-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--pink);
+}
+
+.fullscreen-auth__tag {
+  display: inline-block;
+  background: var(--pink-soft);
+  color: var(--pink-dark);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  margin-left: 10px;
+  vertical-align: middle;
+}
+
+.fullscreen-auth__header h1 {
+  font-size: 26px;
+  font-weight: 900;
+  color: var(--ink);
+  margin: 0 0 4px;
+  letter-spacing: -0.5px;
+}
+
+.fullscreen-auth__header p {
+  font-size: 13.5px;
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.45;
+}
+
+.fullscreen-auth__form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.input-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.input-field label {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-wrapper svg {
+  position: absolute;
+  left: 14px;
+  color: #9b8c9e;
+  pointer-events: none;
+  transition: color 0.2s;
+}
+
+.input-wrapper input {
+  width: 100%;
+  padding: 12px 14px 12px 42px;
+  background: #ffffff;
+  border: 1.5px solid #ebdbe2;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.input-wrapper input:focus {
+  border-color: var(--pink);
+  box-shadow: 0 0 0 4px rgba(224, 78, 142, 0.12);
+}
+
+.input-wrapper input:focus + svg,
+.input-wrapper:focus-within svg {
+  color: var(--pink);
+}
+
+.fullscreen-auth__error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff0f3;
+  color: #d11a47;
+  border: 1px solid #ffccd7;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.fullscreen-auth__btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--pink);
+  color: white;
+  border: none;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(224, 78, 142, 0.32);
+  transition: all 0.2s ease;
+  margin-top: 6px;
+}
+
+.fullscreen-auth__btn:hover:not(:disabled) {
+  background: var(--pink-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(224, 78, 142, 0.4);
+}
+
+.fullscreen-auth__btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.fullscreen-auth__footer {
+  text-align: center;
+  margin-top: 20px;
+}
+
+.fullscreen-auth__footer p {
+  font-size: 13.5px;
+  color: var(--muted);
+  margin: 0;
+}
+
+.fullscreen-auth__footer a {
+  color: var(--pink);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.fullscreen-auth__footer a:hover {
+  text-decoration: underline;
+}
+
+/* Legacy auth fallback for standard embedded forms */
 .auth {
-  width: min(440px, 100%);
+  width: min(460px, 100%);
   margin: 8px auto;
   background: white;
-  border-radius: 18px;
-  padding: 24px;
+  border-radius: 20px;
+  padding: 28px;
   display: flex;
   flex-direction: column;
   gap: 14px;
   box-shadow: 0 8px 24px rgba(43, 36, 48, 0.05);
 }
-.auth h1 { font-size: 28px; }
-.auth p { color: var(--muted); line-height: 1.4; }
+
 .auth label {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 800;
   color: var(--ink);
 }
+
 .auth input {
-  border: 1px solid var(--line);
+  border: 1.5px solid var(--line);
   border-radius: 12px;
-  padding: 12px;
+  padding: 12px 14px;
   font-weight: 600;
+  font-size: 14px;
+  background: #fbfbfc;
 }
-.auth-switch a { color: var(--pink-dark); font-weight: 800; }
+
+.auth-submit {
+  width: 100%;
+  padding: 14px;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.auth-switch {
+  text-align: center;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.auth-switch a {
+  color: var(--pink);
+  font-weight: 800;
+}
 
 /* Site Footer */
 .site-footer {
@@ -1614,5 +1908,31 @@ legend { font-weight: 800; margin-bottom: 8px; }
   }
   .site-footer__map-iframe {
     height: 220px;
+  }
+
+  /* Fullscreen Auth en móviles */
+  .fullscreen-auth {
+    justify-content: center;
+    align-items: center;
+    background-position: center;
+  }
+  .fullscreen-auth__backdrop {
+    background: rgba(255, 240, 245, 0.82);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .fullscreen-auth__container {
+    padding: 16px;
+    max-width: 100%;
+  }
+  .fullscreen-auth__card {
+    padding: 28px 22px;
+    border-radius: 24px;
+  }
+  .fullscreen-auth__back-btn {
+    top: 14px;
+    left: 14px;
+    padding: 8px 14px;
+    font-size: 12.5px;
   }
 }
