@@ -145,6 +145,7 @@ export function HomePage() {
           loop
           muted={heroMuted}
           playsInline
+          referrerPolicy="no-referrer"
           className="video-player"
         />
         <div className="video-card__badge">
@@ -172,6 +173,7 @@ export function HomePage() {
           loop
           muted={showcaseMuted}
           playsInline
+          referrerPolicy="no-referrer"
           className="video-player"
         />
         <VideoChrome
@@ -242,6 +244,7 @@ export function HomePage() {
             }`}
             src={slide.src}
             alt={index === slideIndex ? slide.alt : ""}
+            referrerPolicy="no-referrer"
           />
         ))}
         {showCoverCopy ? <div className="store-hero__veil" /> : null}
@@ -362,6 +365,7 @@ export function HomePage() {
                 loop
                 muted
                 playsInline
+          referrerPolicy="no-referrer"
                 className="story-bubble__preview"
               />
             </div>
@@ -407,6 +411,7 @@ export function HomePage() {
                 loop
                 muted={storyMuted}
                 playsInline
+          referrerPolicy="no-referrer"
                 className="story-modal__video"
               />
             </div>

@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import { Link, useOutletContext } from "react-router-dom"
 import type { StoreProfile } from "../../domain/catalog/entities.ts"
 import { isInPuertoMaldonado } from "../../domain/catalog/store-location.ts"
@@ -20,9 +20,13 @@ function digits(value: string) {
 }
 
 export function AdminStorePage() {
-  useCatalog()
+  const catalogVersion = useCatalog()
   const { theme, themeLabel, toggleTheme } = useOutletContext<AdminShellContext>()
   const [form, setForm] = useState(() => liveStore())
+
+  useEffect(() => {
+    setForm(liveStore())
+  }, [catalogVersion])
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
   const [progress, setProgress] = useState<{ logo: number | null; banner: number | null }>({

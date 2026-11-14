@@ -54,14 +54,14 @@ import { FirebaseAuthService } from "../firebase/FirebaseAuthService.ts"
 import { FirebaseStorageService } from "../firebase/FirebaseStorageService.ts"
 import { FirestoreOrderRepository } from "../ordering/FirestoreOrderRepository.ts"
 
-const catalog = new FirestoreCatalogRepository(snapshot as CatalogSnapshot)
+const firebaseStorageService = new FirebaseStorageService()
+const catalog = new FirestoreCatalogRepository(snapshot as CatalogSnapshot, firebaseStorageService)
 const carts = new LocalStorageCartRepository()
 const accounts = new LocalStorageAccountRepository()
 const sessions = new LocalStorageSessionRepository()
 const orders = new FirestoreOrderRepository()
 const users = new FirestoreUserDirectory()
 const firebaseAuthService = new FirebaseAuthService()
-const firebaseStorageService = new FirebaseStorageService()
 
 export const container = {
   hydrateCatalog: () => catalog.hydrate(),

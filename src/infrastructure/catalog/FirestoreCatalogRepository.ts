@@ -18,6 +18,7 @@ import type {
   StoreRepository,
 } from "../../domain/catalog/ports.ts"
 import { firebaseDb } from "../firebase/firebase.ts"
+import type { FirebaseStorageService } from "../firebase/FirebaseStorageService.ts"
 import type { CatalogSnapshot } from "./JsonCatalogRepository.ts"
 
 function clean<T>(value: T): T {
@@ -36,9 +37,12 @@ export class FirestoreCatalogRepository
   #unsubs: Unsubscribe[] = []
   #hydrated = false
   #seed: CatalogSnapshot
+  #storage: FirebaseStorageService
+  #mediaSeq = 0
 
-  constructor(seed: CatalogSnapshot) {
+  constructor(seed: CatalogSnapshot, storage: FirebaseStorageService) {
     this.#seed = seed
+    this.#storage = storage
     this.#apply(seed)
   }
 
@@ -159,8 +163,15 @@ export class FirestoreCatalogRepository
     this.#unsubs = [
       onSnapshot(doc(firebaseDb, "catalog_store", "profile"), (snapshot) => {
         if (!snapshot.exists()) return
-        this.#store = normalizeStoreProfile(snapshot.data() as StoreProfile)
+        const seq = ++this.#mediaSeq
+        const profile = normalizeStoreProfile(snapshot.data() as StoreProfile)
+        this.#store = profile
         this.#notify()
+        void this.#storage.fillMissingStoreMedia(profile).then((filled) => {
+          if (seq !== this.#mediaSeq) return
+          this.#store = filled
+          this.#notify()
+        })
       }),
       onSnapshot(collection(firebaseDb, "catalog_categories"), (snapshot) => {
         const categories = snapshot.docs.map((item) => item.data() as Category)
