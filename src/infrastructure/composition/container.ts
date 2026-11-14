@@ -1,9 +1,8 @@
 import {
   currentCustomer,
-  loginCustomer,
   logoutCustomer,
-  registerCustomer,
 } from "../../application/auth/authenticate.ts"
+import { changeStoreUserRole, listStoreUsers } from "../../application/auth/manage-users.ts"
 import {
   addProductToCart,
   changeCartQuantity,
@@ -21,33 +20,52 @@ import {
   listCategoryProducts,
   searchCatalog,
 } from "../../application/catalog/browse-catalog.ts"
+import {
+  removeCatalogCategory,
+  removeCatalogProduct,
+  saveCatalogCategory,
+  saveCatalogProduct,
+  saveStoreProfile,
+  saveStoreVideoSlot,
+} from "../../application/catalog/manage-catalog.ts"
+import {
+  listCustomerOrders,
+  listStoreOrders,
+  recordStoreSale,
+  recordWhatsappOrder,
+  removeStoreOrder,
+  updateOrderStatus,
+  type StoreSaleInput,
+} from "../../application/ordering/manage-orders.ts"
 import type { ProductSort } from "../../domain/catalog/search.ts"
 import type { NewCartLine } from "../../domain/cart/cart.ts"
+import type { Cart } from "../../domain/cart/cart.ts"
+import type { Category, Product, StoreProfile, StoreVideoKey, StoreVideoSlot } from "../../domain/catalog/entities.ts"
+import type { StoreUser, UserRole } from "../../domain/auth/entities.ts"
+import type { StoreOrder } from "../../domain/ordering/entities.ts"
+import { FirestoreUserDirectory } from "../auth/FirestoreUserDirectory.ts"
 import { LocalStorageAccountRepository } from "../auth/LocalStorageAccountRepository.ts"
 import { LocalStorageSessionRepository } from "../auth/LocalStorageSessionRepository.ts"
-import { Pbkdf2PasswordHasher } from "../auth/Pbkdf2PasswordHasher.ts"
-import { RandomIdGenerator } from "../auth/RandomIdGenerator.ts"
 import { LocalStorageCartRepository } from "../cart/LocalStorageCartRepository.ts"
 import snapshot from "../catalog/catalog.snapshot.json"
-import { JsonCatalogRepository, type CatalogSnapshot } from "../catalog/JsonCatalogRepository.ts"
-
+import { FirestoreCatalogRepository } from "../catalog/FirestoreCatalogRepository.ts"
+import type { CatalogSnapshot } from "../catalog/JsonCatalogRepository.ts"
 import { FirebaseAuthService } from "../firebase/FirebaseAuthService.ts"
 import { FirebaseStorageService } from "../firebase/FirebaseStorageService.ts"
+import { FirestoreOrderRepository } from "../ordering/FirestoreOrderRepository.ts"
 
-const catalog = new JsonCatalogRepository(snapshot as CatalogSnapshot)
+const catalog = new FirestoreCatalogRepository(snapshot as CatalogSnapshot)
 const carts = new LocalStorageCartRepository()
 const accounts = new LocalStorageAccountRepository()
 const sessions = new LocalStorageSessionRepository()
-const auth = {
-  accounts,
-  sessions,
-  passwords: new Pbkdf2PasswordHasher(),
-  ids: new RandomIdGenerator(),
-}
+const orders = new FirestoreOrderRepository()
+const users = new FirestoreUserDirectory()
 const firebaseAuthService = new FirebaseAuthService()
 const firebaseStorageService = new FirebaseStorageService()
 
 export const container = {
+  hydrateCatalog: () => catalog.hydrate(),
+  subscribeCatalog: (listener: () => void) => catalog.subscribe(listener),
   getStore: () => getStore(catalog),
   listCategories: () => listCategories(catalog),
   getCategoryBySlug: (slug: string) => getCategoryBySlug(catalog, slug),
@@ -55,7 +73,14 @@ export const container = {
   listCategoryProducts: (categoryId: string, sort: ProductSort) =>
     listCategoryProducts(catalog, categoryId, sort),
   getProductById: (id: string) => getProductById(catalog, id),
+  listProducts: () => catalog.listProducts(),
   searchCatalog: (query: string, sort: ProductSort) => searchCatalog(catalog, query, sort),
+  saveStore: (store: StoreProfile) => saveStoreProfile(catalog, store),
+  saveStoreVideo: (key: StoreVideoKey, slot: StoreVideoSlot) => saveStoreVideoSlot(catalog, key, slot),
+  saveCategory: (category: Category) => saveCatalogCategory(catalog, category),
+  deleteCategory: (id: string) => removeCatalogCategory(catalog, id),
+  saveProduct: (product: Product) => saveCatalogProduct(catalog, catalog, firebaseStorageService, product),
+  deleteProduct: (id: string) => removeCatalogProduct(catalog, catalog, firebaseStorageService, id),
   loadCart: () => loadCart(carts),
   addProductToCart: (line: NewCartLine) => addProductToCart(carts, line),
   changeCartQuantity: (lineId: string, quantity: number) =>
@@ -63,7 +88,6 @@ export const container = {
   removeCartLine: (lineId: string) => removeCartLine(carts, lineId),
   updateCartNote: (note: string) => updateCartNote(carts, note),
   clearCart: () => clearSavedCart(carts),
-  // Autenticación con soporte Firebase y fallback local
   currentCustomer: () => currentCustomer(accounts, sessions),
   registerCustomer: (input: { name: string; email: string; password: string }) =>
     firebaseAuthService.registerWithEmail(input.name, input.email, input.password),
@@ -77,5 +101,18 @@ export const container = {
   onAuthStateChanged: (cb: (c: import("../../domain/auth/entities.ts").Customer | null) => void) =>
     firebaseAuthService.onCustomerChanged(cb),
   storage: firebaseStorageService,
+  listOrders: () => listStoreOrders(orders),
+  listCustomerOrders: (email: string) => listCustomerOrders(orders, email),
+  subscribeOrders: (listener: () => void) => orders.subscribe(listener),
+  subscribeCustomerOrders: (email: string, listener: (orders: StoreOrder[]) => void) =>
+    orders.subscribeCustomerOrders(email, listener),
+  recordOrder: (cart: Cart, customer: { name: string; email: string } | null) =>
+    recordWhatsappOrder(orders, cart, customer),
+  recordStoreSale: (input: StoreSaleInput) => recordStoreSale(orders, input),
+  updateOrderStatus: (order: StoreOrder, status: StoreOrder["status"]) =>
+    updateOrderStatus(orders, order, status),
+  deleteOrder: (orderId: string) => removeStoreOrder(orders, orderId),
+  listUsers: () => listStoreUsers(users),
+  subscribeUsers: (listener: () => void) => users.subscribe(listener),
+  updateUserRole: (user: StoreUser, role: UserRole) => changeStoreUserRole(users, user, role),
 }
-

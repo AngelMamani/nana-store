@@ -1,5 +1,25 @@
 export type UserRole = "cliente" | "administrador" | "desarrollador"
 
+export const SUPERADMIN_EMAIL = "amamanim@unamad.edu.pe"
+
+export type StoreUser = {
+  id: string
+  name: string
+  email: string
+  role: UserRole
+  createdAt: string | null
+}
+
+export function isProtectedDeveloper(email: string) {
+  return email.trim().toLowerCase() === SUPERADMIN_EMAIL.toLowerCase()
+}
+
+export function roleLabel(role: UserRole) {
+  if (role === "desarrollador") return "Desarrollador"
+  if (role === "administrador") return "Administrador"
+  return "Cliente"
+}
+
 export type Customer = {
   id: string
   name: string

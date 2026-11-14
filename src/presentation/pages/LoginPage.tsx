@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { useEffect, useState, type FormEvent } from "react"
+import { Link, useLocation, useNavigate } from "react-router-dom"
+import { redirectAfterLogin } from "../auth/after-login.ts"
 import { authErrorMessage } from "../auth/auth-error.ts"
 import { useAuth } from "../auth/auth-context.ts"
 import { container } from "../../infrastructure/composition/container.ts"
@@ -10,26 +11,35 @@ export function LoginPage() {
   const store = container.getStore()
   const auth = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [pending, setPending] = useState(false)
 
+  // Redirigir si el usuario ya está autenticado
+  useEffect(() => {
+    if (!auth.loading && auth.customer) {
+      redirectAfterLogin(navigate, auth.customer, location.search)
+    }
+  }, [auth.customer, auth.loading, location.search, navigate])
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
     setPending(true)
     setError("")
-    const result = await auth.login(email, password)
-    setPending(false)
-    if (!result.ok) {
-      setError(authErrorMessage(result.error))
-      return
-    }
-    const userRole = result.value.role
-    if (userRole === "desarrollador" || userRole === "administrador") {
-      navigate("/admin")
-    } else {
-      navigate("/cuenta")
+    try {
+      const result = await auth.login(email, password)
+      if (!result.ok) {
+        setError(authErrorMessage(result.error))
+        return
+      }
+      redirectAfterLogin(navigate, result.value, location.search)
+    } catch (err) {
+      console.error("Error al iniciar sesión:", err)
+      setError("Ocurrió un error inesperado al iniciar sesión.")
+    } finally {
+      setPending(false)
     }
   }
 
@@ -127,17 +137,18 @@ export function LoginPage() {
               onClick={async () => {
                 setPending(true)
                 setError("")
-                const result = await auth.loginWithGoogle()
-                setPending(false)
-                if (result.ok) {
-                  const userRole = result.value.role
-                  if (userRole === "desarrollador" || userRole === "administrador") {
-                    navigate("/admin")
+                try {
+                  const result = await auth.loginWithGoogle()
+                  if (result.ok) {
+                    redirectAfterLogin(navigate, result.value, location.search)
                   } else {
-                    navigate("/cuenta")
+                    setError("No se pudo iniciar sesión con Google")
                   }
-                } else {
-                  setError("No se pudo iniciar sesión con Google")
+                } catch (err) {
+                  console.error("Error al iniciar sesión con Google:", err)
+                  setError("Ocurrió un error con el inicio de sesión de Google.")
+                } finally {
+                  setPending(false)
                 }
               }}
               disabled={pending}
@@ -150,7 +161,7 @@ export function LoginPage() {
           <div className="fullscreen-auth__footer">
             <p>
               ¿Aún no tienes cuenta?{" "}
-              <Link to="/registro">Regístrate gratis</Link>
+              <Link to={`/registro${location.search}`}>Regístrate gratis</Link>
             </p>
           </div>
         </div>

@@ -9,9 +9,7 @@ import {
 } from "firebase/auth"
 import { doc, getDoc, setDoc } from "firebase/firestore"
 import { firebaseAuth, firebaseDb, googleAuthProvider } from "./firebase.ts"
-import type { Customer, AuthResult, UserRole } from "../../domain/auth/entities.ts"
-
-const SUPERADMIN_EMAIL = "amamanim@unamad.edu.pe"
+import { SUPERADMIN_EMAIL, type Customer, type AuthResult, type UserRole } from "../../domain/auth/entities.ts"
 
 async function fetchUserRole(email: string, uid: string): Promise<UserRole> {
   if (email.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase()) {

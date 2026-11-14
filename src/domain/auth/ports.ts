@@ -1,4 +1,4 @@
-import type { Account, Session } from "./entities.ts"
+import type { Account, Session, StoreUser, UserRole } from "./entities.ts"
 
 export interface AccountRepository {
   findByEmail(email: string): Account | null
@@ -19,4 +19,9 @@ export interface PasswordHasher {
 
 export interface IdGenerator {
   next(): string
+}
+
+export interface UserDirectory {
+  listUsers(): Promise<StoreUser[]>
+  updateUserRole(id: string, role: UserRole): Promise<void>
 }

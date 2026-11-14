@@ -1,7 +1,9 @@
 import { useState, type FormEvent } from "react"
 import { NavLink, Outlet, useNavigate } from "react-router-dom"
+import { storeMapEmbed, storeMapLink } from "../../domain/catalog/store-media.ts"
 import { container } from "../../infrastructure/composition/container.ts"
 import { useAuth } from "../auth/auth-context.ts"
+import { useCatalog } from "../catalog/catalog-context.ts"
 import { useCart } from "../cart/cart-context.ts"
 import { CartDrawer } from "./CartDrawer.tsx"
 import {
@@ -22,16 +24,6 @@ import {
 
 const CURRENT_YEAR = new Date().getFullYear()
 
-const STORE_LOCATION = {
-  address: "Jr. Amazonas 890 (esq. con Av. Madre de Dios), Puerto Maldonado",
-  lat: -12.596538,
-  lng: -69.191129,
-  mapEmbedUrl:
-    "https://maps.google.com/maps?q=-12.596538,-69.191129&hl=es&z=17&output=embed",
-  mapDirectUrl:
-    "https://www.google.com/maps/search/?api=1&query=-12.596538,-69.191129",
-}
-
 const CLOTHING_SLUGS = new Set([
   "ropa-de-nina",
   "ropa-de-nino",
@@ -45,7 +37,10 @@ const SHOE_SLUGS = new Set(["zapato"])
 const ACCESSORY_SLUGS = new Set(["accesorios"])
 
 export function StoreShell() {
+  useCatalog()
   const store = container.getStore()
+  const mapEmbed = storeMapEmbed(store)
+  const mapLink = storeMapLink(store)
   const categories = container.listCategories()
   const cart = useCart()
   const auth = useAuth()
@@ -405,34 +400,32 @@ export function StoreShell() {
 
               <div className="site-footer__col site-footer__location">
                 <h3>Nuestra Ubicación</h3>
-                <div className="site-footer__address">
-                  <span className="icon-wrapper icon-wrapper--pin">
-                    <MapPinIcon />
-                  </span>
-                  <div>
-                    <strong>{STORE_LOCATION.address}</strong>
-                    <p>Puerto Maldonado · Madre de Dios</p>
+                {store.address.trim() ? (
+                  <div className="site-footer__address">
+                    <span className="icon-wrapper icon-wrapper--pin">
+                      <MapPinIcon />
+                    </span>
+                    <div>
+                      <strong>{store.address}</strong>
+                    </div>
                   </div>
-                </div>
+                ) : null}
 
-                <div className="site-footer__map-card">
-                  <iframe
-                    title="Ubicación exacta de NaNa Store"
-                    src={STORE_LOCATION.mapEmbedUrl}
-                    className="site-footer__map-iframe"
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                  />
-                  <a
-                    className="site-footer__map-btn"
-                    href={STORE_LOCATION.mapDirectUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <span>Abrir en Google Maps</span>
-                    <ExternalLinkIcon />
-                  </a>
-                </div>
+                {mapEmbed && mapLink ? (
+                  <div className="site-footer__map-card">
+                    <iframe
+                      title="Ubicación de la tienda"
+                      src={mapEmbed}
+                      className="site-footer__map-iframe"
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                    />
+                    <a className="site-footer__map-btn" href={mapLink} target="_blank" rel="noreferrer">
+                      <span>Abrir en Google Maps</span>
+                      <ExternalLinkIcon />
+                    </a>
+                  </div>
+                ) : null}
               </div>
             </div>
 

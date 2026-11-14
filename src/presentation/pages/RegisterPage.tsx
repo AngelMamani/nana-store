@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
+import { redirectAfterLogin } from "../auth/after-login.ts"
 import { authErrorMessage } from "../auth/auth-error.ts"
 import { useAuth } from "../auth/auth-context.ts"
 
 export function RegisterPage() {
   const auth = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -27,7 +29,7 @@ export function RegisterPage() {
       setError(authErrorMessage(result.error))
       return
     }
-    navigate("/cuenta")
+    redirectAfterLogin(navigate, result.value, location.search)
   }
 
   return (
@@ -73,7 +75,7 @@ export function RegisterPage() {
         {pending ? "Creando cuenta…" : "Crear cuenta"}
       </button>
       <p className="auth-switch">
-        ¿Ya tienes cuenta? <Link to="/entrar">Entra</Link>
+        ¿Ya tienes cuenta? <Link to={`/entrar${location.search}`}>Entra</Link>
       </p>
     </form>
   )

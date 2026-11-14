@@ -1,15 +1,53 @@
+import { useState } from "react"
+import { useNavigate, useLocation } from "react-router-dom"
 import { buildOrderMessage } from "../../domain/ordering/whatsapp-order.ts"
 import { formatPen } from "../../domain/catalog/money.ts"
 import { container } from "../../infrastructure/composition/container.ts"
 import { useAuth } from "../auth/auth-context.ts"
 import { useCart } from "../cart/cart-context.ts"
+import { useCatalog } from "../catalog/catalog-context.ts"
+import { markResumeCheckout } from "../cart/resume-checkout.ts"
 
 export function CartDrawer() {
+  useCatalog()
   const cartState = useCart()
   const auth = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
   const store = container.getStore()
+  const [sending, setSending] = useState(false)
+  const [sendError, setSendError] = useState("")
   const message = buildOrderMessage(store.name, cartState.cart, auth.customer?.name)
   const whatsappHref = `https://wa.me/${store.whatsapp}?text=${encodeURIComponent(message)}`
+
+  function goToLoginForOrder() {
+    markResumeCheckout()
+    cartState.closeCart()
+    const next = `${location.pathname}${location.search}`
+    navigate(`/entrar?siguiente=${encodeURIComponent(next)}&pedido=1`)
+  }
+
+  async function sendOrder() {
+    const customer = auth.customer
+    if (!customer || sending) return
+    setSending(true)
+    setSendError("")
+    const popup = window.open("about:blank", "_blank")
+    try {
+      await container.recordOrder(cartState.cart, {
+        name: customer.name,
+        email: customer.email,
+      })
+      if (popup) popup.location.href = whatsappHref
+      else window.location.href = whatsappHref
+    } catch (error) {
+      console.error("No se pudo registrar el pedido:", error)
+      popup?.close()
+      setSendError("No se pudo guardar el pedido en el panel. Inténtalo de nuevo.")
+    } finally {
+      setSending(false)
+    }
+  }
 
   return (
     <div className={`drawer ${cartState.isOpen ? "is-open" : ""}`}>
@@ -71,9 +109,23 @@ export function CartDrawer() {
                 <span>Total</span>
                 <strong>{formatPen(cartState.total)}</strong>
               </div>
-              <a className="btn btn--whatsapp" href={whatsappHref} target="_blank" rel="noreferrer">
-                Enviar por WhatsApp
-              </a>
+              {auth.customer ? (
+                <>
+                  {sendError ? <p className="drawer__login-hint">{sendError}</p> : null}
+                  <button className="btn btn--whatsapp" type="button" onClick={() => void sendOrder()} disabled={sending}>
+                    {sending ? "Registrando pedido…" : "Enviar por WhatsApp"}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="drawer__login-hint">
+                    Entra a tu cuenta para enviar el pedido. Así queda registrado en el panel con tu nombre y correo.
+                  </p>
+                  <button className="btn btn--whatsapp" type="button" onClick={goToLoginForOrder}>
+                    Entrar para pedir
+                  </button>
+                </>
+              )}
               <button type="button" className="btn btn--ghost" onClick={cartState.clear}>
                 Vaciar carrito
               </button>

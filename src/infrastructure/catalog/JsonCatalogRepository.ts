@@ -1,4 +1,5 @@
 import type { Category, Product, StoreProfile } from "../../domain/catalog/entities.ts"
+import { normalizeStoreProfile } from "../../domain/catalog/store-media.ts"
 import type {
   CategoryRepository,
   ProductRepository,
@@ -21,7 +22,7 @@ export class JsonCatalogRepository
   readonly #categoriesBySlug: Map<string, Category>
 
   constructor(snapshot: CatalogSnapshot) {
-    this.#store = snapshot.store
+    this.#store = normalizeStoreProfile(snapshot.store)
     this.#categories = [...snapshot.categories].sort((left, right) => left.order - right.order)
     this.#products = snapshot.products
     this.#productsById = new Map(snapshot.products.map((product) => [product.id, product]))

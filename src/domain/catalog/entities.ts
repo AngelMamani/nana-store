@@ -1,12 +1,26 @@
+export type StoreVideoKey = "hero" | "showcase" | "story"
+
+export type StoreVideoSlot = {
+  url: string | null
+  enabled: boolean
+  title: string
+  description: string
+}
+
+export type StoreVideos = Record<StoreVideoKey, StoreVideoSlot>
+
 export type StoreProfile = {
   name: string
   logo: string
   banner: string
   address: string
+  mapLat: number | null
+  mapLng: number | null
   phone: string
   whatsapp: string
   email: string
   currency: "PEN"
+  videos: StoreVideos
 }
 
 export type Category = {

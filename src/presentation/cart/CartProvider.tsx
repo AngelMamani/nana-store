@@ -1,11 +1,16 @@
-import { useMemo, useState, type ReactNode } from "react"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { cartQuantity, cartTotal } from "../../domain/cart/cart.ts"
 import { container } from "../../infrastructure/composition/container.ts"
 import { CartContext, type CartContextValue } from "./cart-context.ts"
+import { consumeResumeCheckout } from "./resume-checkout.ts"
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState(() => container.loadCart())
   const [isOpen, setOpen] = useState(false)
+
+  useEffect(() => {
+    if (consumeResumeCheckout()) setOpen(true)
+  }, [])
 
   const value = useMemo<CartContextValue>(
     () => ({

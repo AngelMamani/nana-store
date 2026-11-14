@@ -3,34 +3,28 @@ import { Link, useNavigate, useParams } from "react-router-dom"
 import type { Product } from "../../domain/catalog/entities.ts"
 import { formatPen } from "../../domain/catalog/money.ts"
 import {
+  defaultSelection,
   findVariant,
   isOptionAvailable,
   isPurchasable,
   selectedCompareAt,
   selectedImage,
   selectedUnitPrice,
+  selectionComplete,
   summarizePrice,
 } from "../../domain/catalog/pricing.ts"
 import { buildProductInterestMessage } from "../../domain/ordering/whatsapp-order.ts"
 import { container } from "../../infrastructure/composition/container.ts"
 import { useAuth } from "../auth/auth-context.ts"
+import { useCatalog } from "../catalog/catalog-context.ts"
 import { useCart } from "../cart/cart-context.ts"
-
-function initialSelection(product: Product) {
-  const selection: Record<string, string> = {}
-  for (const variation of product.variations) {
-    const only = variation.options[0]
-    if (variation.options.length === 1 && only) selection[variation.name] = only.title
-  }
-  return selection
-}
 
 function ProductDetail({ product }: { product: Product }) {
   const navigate = useNavigate()
   const store = container.getStore()
   const cart = useCart()
   const auth = useAuth()
-  const [selection, setSelection] = useState(() => initialSelection(product))
+  const [selection, setSelection] = useState(() => defaultSelection(product))
   const [quantity, setQuantity] = useState(1)
   const [photo, setPhoto] = useState<string | null>(product.image)
   const [notice, setNotice] = useState("")
@@ -55,7 +49,7 @@ function ProductDetail({ product }: { product: Product }) {
   const categoryName = container.listCategories().find((category) => category.id === product.categoryId)?.name
   const variant = findVariant(product, selection)
   const summary = summarizePrice(product)
-  const needsChoice = product.variations.some((variation) => !selection[variation.name])
+  const needsChoice = !selectionComplete(product, selection)
   const ready = isPurchasable(product, selection)
   const price = needsChoice ? summary.amount : selectedUnitPrice(product, selection)
   const compareAt = needsChoice ? null : selectedCompareAt(product, selection)
@@ -159,8 +153,8 @@ function ProductDetail({ product }: { product: Product }) {
                 +
               </button>
             </div>
-            <button className="btn" type="button" onClick={addToCart}>
-              {needsChoice ? "Elige una opción" : ready ? "Añadir" : "No disponible"}
+            <button className="btn" type="button" onClick={addToCart} disabled={!ready && !needsChoice}>
+              {needsChoice ? "Elige talla o color" : ready ? "Añadir al carrito" : "Sin stock"}
             </button>
           </div>
           {notice && <p className="notice">{notice}</p>}
@@ -180,6 +174,7 @@ function ProductDetail({ product }: { product: Product }) {
 }
 
 export function ProductPage() {
+  useCatalog()
   const { productId = "" } = useParams()
   const product = container.getProductById(productId)
 

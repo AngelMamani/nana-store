@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useSearchParams } from "react-router-dom"
 import type { ProductSort } from "../../domain/catalog/search.ts"
 import { container } from "../../infrastructure/composition/container.ts"
+import { useCatalog } from "../catalog/catalog-context.ts"
 import { ProductCard } from "../components/ProductCard.tsx"
 
 const SORTS: { id: ProductSort; label: string }[] = [
@@ -14,6 +15,7 @@ const SORTS: { id: ProductSort; label: string }[] = [
 ]
 
 export function SearchPage() {
+  useCatalog()
   const [params] = useSearchParams()
   const query = params.get("q") ?? ""
   const [sort, setSort] = useState<ProductSort>("relevance")
