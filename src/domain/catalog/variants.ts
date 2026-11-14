@@ -10,6 +10,17 @@ export function extractSizes(variations: ProductVariation[]): string[] {
   return []
 }
 
+export function findVariantByOptions(
+  variants: ProductVariant[],
+  options: { name: string; title: string }[],
+): ProductVariant | null {
+  if (variants.length === 0) return null
+  const key = variantOptionKey(options)
+  const matched = variants.find((variant) => variantOptionKey(variant.options) === key)
+  if (matched) return matched
+  return variants.length === 1 ? variants[0] : null
+}
+
 export function variantOptionKey(options: { name: string; title: string }[]): string {
   return [...options]
     .sort((left, right) => left.name.localeCompare(right.name))

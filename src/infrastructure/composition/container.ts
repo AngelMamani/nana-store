@@ -34,6 +34,7 @@ import {
   recordStoreSale,
   recordWhatsappOrder,
   removeStoreOrder,
+  updateOrderAdvance,
   updateOrderStatus,
   type StoreSaleInput,
 } from "../../application/ordering/manage-orders.ts"
@@ -109,10 +110,11 @@ export const container = {
     orders.subscribeCustomerOrders(email, listener),
   recordOrder: (cart: Cart, customer: { name: string; email: string } | null) =>
     recordWhatsappOrder(orders, cart, customer),
-  recordStoreSale: (input: StoreSaleInput) => recordStoreSale(orders, input),
-  updateOrderStatus: (order: StoreOrder, status: StoreOrder["status"]) =>
-    updateOrderStatus(orders, order, status),
-  deleteOrder: (orderId: string) => removeStoreOrder(orders, orderId),
+  recordStoreSale: (input: StoreSaleInput) => recordStoreSale(orders, catalog, input),
+  updateOrderStatus: (order: StoreOrder, status: StoreOrder["status"], advance?: number) =>
+    updateOrderStatus(orders, catalog, order, status, advance),
+  updateOrderAdvance: (order: StoreOrder, advance: number) => updateOrderAdvance(orders, catalog, order, advance),
+  deleteOrder: (order: StoreOrder) => removeStoreOrder(orders, catalog, order),
   listUsers: () => listStoreUsers(users),
   subscribeUsers: (listener: () => void) => users.subscribe(listener),
   updateUserRole: (user: StoreUser, role: UserRole) => changeStoreUserRole(users, user, role),

@@ -7,7 +7,7 @@ import {
   selectionComplete,
 } from "../../domain/catalog/pricing.ts"
 import type { Product } from "../../domain/catalog/entities.ts"
-import type { OrderLine } from "../../domain/ordering/entities.ts"
+import type { OrderLine, PaymentMode } from "../../domain/ordering/entities.ts"
 import { container } from "../../infrastructure/composition/container.ts"
 import { useCatalog } from "../catalog/catalog-context.ts"
 import { showAdminError, showAdminSuccess } from "./admin-alerts.ts"
@@ -28,6 +28,11 @@ export function AdminStoreSaleForm({ onClose }: { onClose: () => void }) {
   const [customerName, setCustomerName] = useState("")
   const [customerEmail, setCustomerEmail] = useState("")
   const [note, setNote] = useState("")
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>("contado")
+  const [advance, setAdvance] = useState("")
+  const [customName, setCustomName] = useState("")
+  const [customPrice, setCustomPrice] = useState("")
+  const [customQty, setCustomQty] = useState("1")
   const [busy, setBusy] = useState(false)
 
   const matches = useMemo(() => {
@@ -42,6 +47,8 @@ export function AdminStoreSaleForm({ onClose }: { onClose: () => void }) {
   }, [products, search])
 
   const total = lines.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0)
+  const advanceAmount = Math.min(Math.max(0, Number(advance) || 0), total)
+  const balance = Math.max(0, total - advanceAmount)
 
   function addProduct(product: Product, chosen: Record<string, string>) {
     if (!isPurchasable(product, chosen)) return
@@ -80,6 +87,29 @@ export function AdminStoreSaleForm({ onClose }: { onClose: () => void }) {
     setSelection(initial)
   }
 
+  function addCustom() {
+    const name = customName.trim()
+    const unitPrice = Number(customPrice)
+    const quantity = Math.max(1, Math.round(Number(customQty) || 1))
+    if (!name || !Number.isFinite(unitPrice) || unitPrice < 0) return
+    const productId = `custom:${crypto.randomUUID()}`
+    setLines((current) => [
+      ...current,
+      {
+        key: productId,
+        productId,
+        name,
+        quantity,
+        unitPrice,
+        options: [],
+        custom: true,
+      },
+    ])
+    setCustomName("")
+    setCustomPrice("")
+    setCustomQty("1")
+  }
+
   async function save() {
     if (!lines.length || busy) return
     setBusy(true)
@@ -88,9 +118,16 @@ export function AdminStoreSaleForm({ onClose }: { onClose: () => void }) {
         customerName,
         customerEmail,
         note,
+        paymentMode,
+        advance: paymentMode === "contraEntrega" ? advanceAmount : total,
         lines: lines.map(({ key: _key, ...line }) => line),
       })
-      await showAdminSuccess("Venta registrada", "Quedó como atendida en Pedidos, aparte de WhatsApp.")
+      await showAdminSuccess(
+        paymentMode === "contraEntrega" ? "Pedido reservado" : "Venta registrada",
+        paymentMode === "contraEntrega"
+          ? "Quedó contra entrega: el stock de las prendas del catálogo se apartó."
+          : "Quedó como atendida en Pedidos.",
+      )
       onClose()
     } catch {
       await showAdminError("No se pudo guardar", "Revisa la conexión e inténtalo de nuevo.")
@@ -113,11 +150,28 @@ export function AdminStoreSaleForm({ onClose }: { onClose: () => void }) {
           </button>
         </header>
 
+        <div className="admin-sale__pay" role="group" aria-label="Forma de pago">
+          <button
+            type="button"
+            className={paymentMode === "contado" ? "is-active" : ""}
+            onClick={() => setPaymentMode("contado")}
+          >
+            Contado
+          </button>
+          <button
+            type="button"
+            className={paymentMode === "contraEntrega" ? "is-active" : ""}
+            onClick={() => setPaymentMode("contraEntrega")}
+          >
+            Contra entrega
+          </button>
+        </div>
+
         <label className="admin-products-search">
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Buscar prenda por nombre o código"
+            placeholder="Buscar prenda del catálogo"
           />
         </label>
 
@@ -167,6 +221,36 @@ export function AdminStoreSaleForm({ onClose }: { onClose: () => void }) {
           </div>
         ) : null}
 
+        <div className="admin-sale__custom">
+          <p>Prenda suelta (no está en el catálogo)</p>
+          <div>
+            <input
+              value={customName}
+              onChange={(event) => setCustomName(event.target.value)}
+              placeholder="Nombre"
+            />
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={customPrice}
+              onChange={(event) => setCustomPrice(event.target.value)}
+              placeholder="Precio"
+            />
+            <input
+              type="number"
+              min="1"
+              step="1"
+              value={customQty}
+              onChange={(event) => setCustomQty(event.target.value)}
+              placeholder="Cant."
+            />
+            <button type="button" className="btn btn--outline" onClick={addCustom} disabled={!customName.trim()}>
+              Agregar
+            </button>
+          </div>
+        </div>
+
         {lines.length > 0 ? (
           <ul className="admin-sale__lines">
             {lines.map((line) => (
@@ -175,6 +259,7 @@ export function AdminStoreSaleForm({ onClose }: { onClose: () => void }) {
                   <strong>
                     {line.quantity}× {line.name}
                   </strong>
+                  {line.custom ? <em>No registrada</em> : null}
                   {line.options.length > 0 ? (
                     <em>{line.options.map((option) => option.title).join(" · ")}</em>
                   ) : null}
@@ -212,7 +297,9 @@ export function AdminStoreSaleForm({ onClose }: { onClose: () => void }) {
             ))}
           </ul>
         ) : (
-          <p className="admin-sale__hint">Busca una prenda y agrégala. La venta queda marcada como atendida.</p>
+          <p className="admin-sale__hint">
+            Busca una prenda del catálogo o agrega una suelta. Contado descuenta stock; contra entrega lo reserva.
+          </p>
         )}
 
         <div className="admin-sale__fields">
@@ -229,16 +316,40 @@ export function AdminStoreSaleForm({ onClose }: { onClose: () => void }) {
               placeholder="Para que lo vea en su cuenta"
             />
           </label>
+          {paymentMode === "contraEntrega" ? (
+            <label>
+              Adelanto
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={advance}
+                onChange={(event) => setAdvance(event.target.value)}
+                placeholder="0"
+              />
+            </label>
+          ) : null}
           <label>
             Nota
-            <input value={note} onChange={(event) => setNote(event.target.value)} placeholder="Efectivo, Yape, talla, etc." />
+            <input value={note} onChange={(event) => setNote(event.target.value)} placeholder="Yape, destino, talla, etc." />
           </label>
         </div>
 
         <footer>
-          <strong>Total {formatPen(total)}</strong>
+          <div>
+            <strong>Total {formatPen(total)}</strong>
+            {paymentMode === "contraEntrega" ? (
+              <em>
+                Adelanto {formatPen(advanceAmount)} · Saldo {formatPen(balance)}
+              </em>
+            ) : null}
+          </div>
           <button type="button" className="btn btn--primary" disabled={!lines.length || busy} onClick={() => void save()}>
-            {busy ? "Guardando…" : "Registrar venta"}
+            {busy
+              ? "Guardando…"
+              : paymentMode === "contraEntrega"
+                ? "Reservar pedido"
+                : "Registrar venta"}
           </button>
         </footer>
       </section>

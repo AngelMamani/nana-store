@@ -2,7 +2,17 @@ import { useEffect, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { roleLabel } from "../../domain/auth/entities.ts"
 import { formatPen } from "../../domain/catalog/money.ts"
-import { channelLabel, orderChannel, type OrderStatus, type StoreOrder } from "../../domain/ordering/entities.ts"
+import {
+  channelLabel,
+  orderAdvance,
+  orderBalance,
+  orderChannel,
+  orderStatusLabel,
+  paymentLabel,
+  paymentMode,
+  type OrderStatus,
+  type StoreOrder,
+} from "../../domain/ordering/entities.ts"
 import { container } from "../../infrastructure/composition/container.ts"
 import { useAuth } from "../auth/auth-context.ts"
 import { useCart } from "../cart/cart-context.ts"
@@ -15,9 +25,7 @@ function accountInitials(name: string) {
 }
 
 function statusLabel(status: OrderStatus) {
-  if (status === "nuevo") return "En revisión"
-  if (status === "atendido") return "Atendido"
-  return "Cancelado"
+  return orderStatusLabel(status, "customer")
 }
 
 function formatDate(value: string) {
@@ -90,7 +98,7 @@ export function AccountPage() {
   const whatsappHref = `https://wa.me/${store.whatsapp}?text=${encodeURIComponent(
     `Hola ${store.name}, soy ${customer.name} y quiero hacer una consulta.`,
   )}`
-  const openOrders = orders.filter((order) => order.status === "nuevo").length
+  const openOrders = orders.filter((order) => order.status === "nuevo" || order.status === "reservado").length
 
   return (
     <div className="page account-page">
@@ -120,7 +128,7 @@ export function AccountPage() {
           <strong>
             {orders.length === 0
               ? "Ninguno aún"
-              : `${orders.length} · ${openOrders} en revisión`}
+              : `${orders.length} · ${openOrders} abiertos`}
           </strong>
         </article>
       </section>
@@ -155,6 +163,12 @@ export function AccountPage() {
                   </li>
                 ))}
               </ul>
+              {paymentMode(order) === "contraEntrega" ? (
+                <p className="account-order__note">
+                  {paymentLabel("contraEntrega")} · Adelanto {formatPen(orderAdvance(order))} · Saldo{" "}
+                  {formatPen(orderBalance(order))}
+                </p>
+              ) : null}
               {order.note ? <p className="account-order__note">Nota: {order.note}</p> : null}
             </li>
           ))}

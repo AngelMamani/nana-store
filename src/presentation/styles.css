@@ -2104,6 +2104,11 @@ legend { font-weight: 800; margin-bottom: 8px; }
   color: #ea0f7c;
 }
 
+.account-order__badge.is-reservado {
+  background: #eee8ff;
+  color: #5b3fa0;
+}
+
 .account-order__badge.is-atendido {
   background: #e7f8ef;
   color: #047857;
@@ -5232,6 +5237,10 @@ legend { font-weight: 800; margin-bottom: 8px; }
     linear-gradient(135deg, color-mix(in srgb, #1faa59 12%, var(--admin-card)) 0%, var(--admin-card) 58%);
 }
 
+.admin-orders-kpis {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .admin-orders-kpis .admin-inventory-kpi strong {
   font-size: clamp(18px, 2.4vw, 28px);
 }
@@ -5392,6 +5401,53 @@ legend { font-weight: 800; margin-bottom: 8px; }
   border-radius: 16px;
 }
 
+.admin-sale__pay,
+.admin-sale__custom > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-sale__pay button {
+  flex: 1;
+  min-height: 38px;
+  border-radius: 999px;
+  border: 1px solid var(--admin-line);
+  background: var(--admin-soft);
+  color: var(--admin-muted);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.admin-sale__pay button.is-active {
+  border-color: var(--pink);
+  background: var(--pink-soft);
+  color: var(--pink-dark);
+}
+
+.admin-sale__custom {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-sale__custom p {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--admin-muted);
+}
+
+.admin-sale__custom input {
+  flex: 1;
+  min-width: 80px;
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: 12px;
+  border: 1px solid var(--admin-line);
+  background: var(--admin-soft);
+  color: var(--admin-ink);
+}
+
 .admin-sale__fields {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -5427,6 +5483,14 @@ legend { font-weight: 800; margin-bottom: 8px; }
   gap: 12px;
 }
 
+.admin-sale__panel footer em {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  font-style: normal;
+  color: var(--admin-muted);
+}
+
 .admin-sale__panel footer .btn {
   margin-top: 0;
 }
@@ -5444,6 +5508,10 @@ legend { font-weight: 800; margin-bottom: 8px; }
 
 .admin-order-card.is-nuevo {
   border-color: color-mix(in srgb, #c48912 42%, var(--admin-line));
+}
+
+.admin-order-card.is-reservado {
+  border-color: color-mix(in srgb, #7c5cbf 42%, var(--admin-line));
 }
 
 .admin-order-card.is-cancelado {
@@ -5498,6 +5566,11 @@ legend { font-weight: 800; margin-bottom: 8px; }
 .admin-order-badge.is-nuevo {
   background: color-mix(in srgb, #e8b040 22%, var(--admin-soft));
   color: #9a6b00;
+}
+
+.admin-order-badge.is-reservado {
+  background: color-mix(in srgb, #7c5cbf 18%, var(--admin-soft));
+  color: #5b3fa0;
 }
 
 .admin-order-badge.is-atendido {
@@ -5590,6 +5663,13 @@ legend { font-weight: 800; margin-bottom: 8px; }
   background: color-mix(in srgb, #e8b040 18%, var(--admin-soft));
 }
 
+.admin-order-status button.is-active.is-reservado,
+.admin-order-status button.is-reservado:hover:not(:disabled) {
+  border-color: #7c5cbf;
+  color: #5b3fa0;
+  background: color-mix(in srgb, #7c5cbf 16%, var(--admin-soft));
+}
+
 .admin-order-status button.is-active.is-atendido,
 .admin-order-status button.is-atendido:hover:not(:disabled) {
   border-color: #1faa59;
@@ -5627,6 +5707,31 @@ legend { font-weight: 800; margin-bottom: 8px; }
   background: color-mix(in srgb, #e8b040 8%, var(--admin-card));
 }
 
+.admin-table tr.is-reservado td {
+  background: color-mix(in srgb, #7c5cbf 8%, var(--admin-card));
+}
+
+.admin-order-pay {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--admin-ink);
+}
+
+.admin-order-pay .btn {
+  margin: 0;
+}
+
+.admin-stock-reserved {
+  color: #5b3fa0;
+  font-style: normal;
+  font-weight: 800;
+  font-size: 12px;
+}
+
 .admin-table tr.is-cancelado td {
   background: color-mix(in srgb, #d64545 6%, var(--admin-card));
 }
@@ -5638,6 +5743,12 @@ legend { font-weight: 800; margin-bottom: 8px; }
 .admin-shell[data-theme="dark"] .admin-order-badge.is-nuevo,
 .admin-shell[data-theme="dark"] .admin-order-status button.is-active.is-nuevo {
   color: #f0c36a;
+}
+
+.admin-shell[data-theme="dark"] .admin-order-badge.is-reservado,
+.admin-shell[data-theme="dark"] .admin-order-status button.is-active.is-reservado,
+.admin-shell[data-theme="dark"] .admin-stock-reserved {
+  color: #c4b0ff;
 }
 
 .admin-shell[data-theme="dark"] .admin-order-badge.is-atendido,

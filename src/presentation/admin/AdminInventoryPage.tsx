@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState, type ReactNode } from "react"
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { formatPen } from "../../domain/catalog/money.ts"
 import { summarizePrice } from "../../domain/catalog/pricing.ts"
@@ -6,6 +6,7 @@ import { searchProducts } from "../../domain/catalog/search.ts"
 import { inventoryAlert, productStock, type InventoryAlert } from "../../domain/catalog/stock.ts"
 import { extractColors, extractSizes, variantOptionKey } from "../../domain/catalog/variants.ts"
 import type { Product, ProductVariant } from "../../domain/catalog/entities.ts"
+import { reservedUnitsForProduct, type StoreOrder } from "../../domain/ordering/entities.ts"
 import { container } from "../../infrastructure/composition/container.ts"
 import { useCatalog } from "../catalog/catalog-context.ts"
 import { showAdminError } from "./admin-alerts.ts"
@@ -44,6 +45,23 @@ export function AdminInventoryPage() {
   const [page, setPage] = useState(1)
   const [openId, setOpenId] = useState<string | null>(null)
   const [busyKey, setBusyKey] = useState<string | null>(null)
+  const [orders, setOrders] = useState<StoreOrder[]>([])
+
+  useEffect(() => {
+    let active = true
+    void container.listOrders().then((next) => {
+      if (active) setOrders(next)
+    })
+    const stop = container.subscribeOrders(() => {
+      void container.listOrders().then((next) => {
+        if (active) setOrders(next)
+      })
+    })
+    return () => {
+      active = false
+      stop()
+    }
+  }, [])
 
   const stats = useMemo(() => {
     let units = 0
@@ -247,6 +265,7 @@ export function AdminInventoryPage() {
               key={product.id}
               product={product}
               categoryName={categories.find((item) => item.id === product.categoryId)?.name}
+              reserved={reservedUnitsForProduct(orders, product.id)}
               open={openId === product.id}
               busyKey={busyKey}
               onToggle={() => setOpenId(openId === product.id ? null : product.id)}
@@ -271,6 +290,7 @@ export function AdminInventoryPage() {
               <tbody>
                 {visible.map((product) => {
                   const stock = productStock(product)
+                  const reserved = reservedUnitsForProduct(orders, product.id)
                   const alert = inventoryAlert(product)
                   const open = openId === product.id
                   return (
@@ -292,7 +312,10 @@ export function AdminInventoryPage() {
                         <td>
                           <AlertBadge alert={alert} />
                         </td>
-                        <td>{stock === null ? "—" : `${stock} u.`}</td>
+                        <td>
+                          {stock === null ? "—" : `${stock} u.`}
+                          {reserved > 0 ? <em className="admin-stock-reserved"> · {reserved} reserv.</em> : null}
+                        </td>
                         <td>{product.variants.length || "—"}</td>
                         <td>
                           <div className="admin-products-actions">
@@ -357,10 +380,12 @@ function InventoryCard({
   busyKey,
   onToggle,
   onEdit,
+  reserved,
   onChangeStock,
 }: {
   product: Product
   categoryName?: string
+  reserved: number
   open: boolean
   busyKey: string | null
   onToggle: () => void
@@ -381,7 +406,10 @@ function InventoryCard({
       </div>
       <div className="admin-inventory-card__meta">
         <strong>{stock === null ? "Sin control" : `${stock} u.`}</strong>
-        <span>{product.variants.length} variantes</span>
+        <span>
+          {product.variants.length} variantes
+          {reserved > 0 ? ` · ${reserved} reservadas` : ""}
+        </span>
       </div>
       {open && <VariantPanel product={product} busyKey={busyKey} onChangeStock={onChangeStock} />}
       <div className="admin-products-actions">

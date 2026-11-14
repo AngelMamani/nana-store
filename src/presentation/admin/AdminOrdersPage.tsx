@@ -1,13 +1,25 @@
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react"
 import { formatPen } from "../../domain/catalog/money.ts"
-import { channelLabel, orderChannel, type OrderChannel, type OrderStatus, type StoreOrder } from "../../domain/ordering/entities.ts"
+import {
+  channelLabel,
+  isCustomOrderLine,
+  orderAdvance,
+  orderBalance,
+  orderChannel,
+  orderStatusLabel,
+  paymentLabel,
+  paymentMode,
+  type OrderChannel,
+  type OrderStatus,
+  type StoreOrder,
+} from "../../domain/ordering/entities.ts"
 import { container } from "../../infrastructure/composition/container.ts"
-import { confirmAdminAction, showAdminError } from "./admin-alerts.ts"
+import { confirmAdminAction, promptAdminNumber, showAdminError } from "./admin-alerts.ts"
 import { AdminStoreSaleForm } from "./AdminStoreSaleForm.tsx"
 
 const VIEW_KEY = "nana-admin-orders-view"
 const PAGE_SIZE = 10
-const STATUSES: OrderStatus[] = ["nuevo", "atendido", "cancelado"]
+const STATUSES: OrderStatus[] = ["nuevo", "reservado", "atendido", "cancelado"]
 
 type OrderView = "list" | "cards"
 type OrderFilter = "all" | OrderStatus
@@ -24,9 +36,7 @@ function readView(): OrderView {
 }
 
 function statusLabel(status: OrderStatus) {
-  if (status === "nuevo") return "Nuevo"
-  if (status === "atendido") return "Atendido"
-  return "Cancelado"
+  return orderStatusLabel(status, "admin")
 }
 
 function formatDate(value: string) {
@@ -95,6 +105,7 @@ export function AdminOrdersPage() {
 
   const stats = useMemo(() => {
     let nuevo = 0
+    let reservado = 0
     let atendido = 0
     let cancelado = 0
     let sales = 0
@@ -102,13 +113,14 @@ export function AdminOrdersPage() {
     let whatsapp = 0
     for (const order of orders) {
       if (order.status === "nuevo") nuevo += 1
+      if (order.status === "reservado") reservado += 1
       if (order.status === "atendido") atendido += 1
       if (order.status === "cancelado") cancelado += 1
       if (order.status !== "cancelado") sales += order.total
       if (orderChannel(order) === "tienda") tienda += 1
       else whatsapp += 1
     }
-    return { nuevo, atendido, cancelado, sales, total: orders.length, tienda, whatsapp }
+    return { nuevo, reservado, atendido, cancelado, sales, total: orders.length, tienda, whatsapp }
   }, [orders])
 
   const filtered = useMemo(() => {
@@ -142,22 +154,56 @@ export function AdminOrdersPage() {
 
   async function setStatus(order: StoreOrder, status: OrderStatus) {
     if (order.status === status) return
-    const ok = await confirmAdminAction({
-      title: `${statusLabel(status)} pedido`,
-      text:
-        status === "cancelado"
-          ? `¿Cancelar el pedido de ${order.customerName ?? "invitado"} por ${formatPen(order.total)}?`
-          : `¿Marcar el pedido de ${order.customerName ?? "invitado"} como ${statusLabel(status).toLowerCase()}?`,
-      confirmText: status === "cancelado" ? "Cancelar pedido" : "Actualizar",
-      danger: status === "cancelado",
-      icon: status === "cancelado" ? "warning" : "question",
-    })
-    if (!ok) return
+    let advance: number | undefined
+    if (status === "reservado") {
+      const typed = await promptAdminNumber({
+        title: "Reservar contra entrega",
+        text: `Total ${formatPen(order.total)}. ¿Cuánto adelantó el cliente? El stock de las prendas del catálogo se aparta.`,
+        value: String(orderAdvance(order) || ""),
+        confirmText: "Reservar",
+        placeholder: "Adelanto",
+      })
+      if (typed === null) return
+      advance = typed
+    } else {
+      const ok = await confirmAdminAction({
+        title: `${statusLabel(status)} pedido`,
+        text:
+          status === "cancelado"
+            ? `¿Cancelar el pedido de ${order.customerName ?? "invitado"} por ${formatPen(order.total)}? Si estaba reservado, el stock vuelve.`
+            : status === "atendido"
+              ? `¿Marcar como pagado/entregado el pedido de ${order.customerName ?? "invitado"}? El saldo queda en cero.`
+              : `¿Marcar el pedido de ${order.customerName ?? "invitado"} como ${statusLabel(status).toLowerCase()}?`,
+        confirmText: status === "cancelado" ? "Cancelar pedido" : "Actualizar",
+        danger: status === "cancelado",
+        icon: status === "cancelado" ? "warning" : "question",
+      })
+      if (!ok) return
+    }
     setBusyId(order.id)
     try {
-      await container.updateOrderStatus(order, status)
+      await container.updateOrderStatus(order, status, advance)
     } catch {
       await showAdminError("No se pudo actualizar", "Revisa la conexión e inténtalo de nuevo.")
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function setAdvance(order: StoreOrder) {
+    const typed = await promptAdminNumber({
+      title: "Adelanto",
+      text: `Total ${formatPen(order.total)}. El saldo se cobra al entregar.`,
+      value: String(orderAdvance(order) || ""),
+      confirmText: "Guardar adelanto",
+      placeholder: "Monto adelantado",
+    })
+    if (typed === null) return
+    setBusyId(order.id)
+    try {
+      await container.updateOrderAdvance(order, typed)
+    } catch {
+      await showAdminError("No se pudo guardar el adelanto", "Revisa la conexión e inténtalo de nuevo.")
     } finally {
       setBusyId(null)
     }
@@ -174,7 +220,7 @@ export function AdminOrdersPage() {
     if (!ok) return
     setBusyId(order.id)
     try {
-      await container.deleteOrder(order.id)
+      await container.deleteOrder(order)
       if (openId === order.id) setOpenId(null)
     } catch {
       await showAdminError("No se pudo eliminar", "Revisa la conexión e inténtalo de nuevo.")
@@ -190,8 +236,8 @@ export function AdminOrdersPage() {
           <p className="admin-kicker">Ventas</p>
           <h1>Pedidos</h1>
           <p>
-            {stats.total} registrados · {stats.whatsapp} por WhatsApp · {stats.tienda} en tienda. Cambia el estado o
-            registra una venta de mostrador.
+            {stats.total} registrados · {stats.whatsapp} por WhatsApp · {stats.tienda} en tienda. Contra entrega aparta
+            stock; en mostrador también puedes vender prendas no registradas.
           </p>
         </div>
         <button type="button" className="btn btn--primary" onClick={() => setSaleOpen(true)}>
@@ -212,11 +258,20 @@ export function AdminOrdersPage() {
           onClick={() => applyFilter("nuevo")}
         />
         <KpiCard
+          tone="violet"
+          icon="pin"
+          label="Reservados"
+          value={stats.reservado}
+          hint="contra entrega"
+          active={filter === "reservado"}
+          onClick={() => applyFilter("reservado")}
+        />
+        <KpiCard
           tone="mint"
           icon="ok"
           label="Atendidos"
           value={stats.atendido}
-          hint="ya gestionados"
+          hint="ya cobrados"
           active={filter === "atendido"}
           onClick={() => applyFilter("atendido")}
         />
@@ -309,6 +364,7 @@ export function AdminOrdersPage() {
               busy={busyId === order.id}
               onToggle={() => setOpenId(openId === order.id ? null : order.id)}
               onStatus={(status) => void setStatus(order, status)}
+              onAdvance={() => void setAdvance(order)}
               onRemove={() => void removeOrder(order)}
             />
           ))}
@@ -376,7 +432,7 @@ export function AdminOrdersPage() {
                       {open && (
                         <tr className="admin-inventory-detail-row">
                           <td colSpan={6}>
-                            <OrderDetail order={order} />
+                            <OrderDetail order={order} busy={busyId === order.id} onAdvance={() => void setAdvance(order)} />
                           </td>
                         </tr>
                       )}
@@ -421,6 +477,7 @@ function OrderCard({
   busy,
   onToggle,
   onStatus,
+  onAdvance,
   onRemove,
 }: {
   order: StoreOrder
@@ -429,6 +486,7 @@ function OrderCard({
   busy: boolean
   onToggle: () => void
   onStatus: (status: OrderStatus) => void
+  onAdvance: () => void
   onRemove: () => void
 }) {
   return (
@@ -447,7 +505,7 @@ function OrderCard({
         <span>{itemCount(order)} prendas</span>
       </div>
       <StatusControls status={order.status} busy={busy} onStatus={onStatus} />
-      {open && <OrderDetail order={order} />}
+      {open && <OrderDetail order={order} busy={busy} onAdvance={onAdvance} />}
       <div className="admin-products-actions">
         <button type="button" title={open ? "Ocultar detalle" : "Ver detalle"} onClick={onToggle}>
           <Glyph name={open ? "up" : "down"} />
@@ -487,7 +545,18 @@ function StatusControls({
   )
 }
 
-function OrderDetail({ order }: { order: StoreOrder }) {
+function OrderDetail({
+  order,
+  busy,
+  onAdvance,
+}: {
+  order: StoreOrder
+  busy: boolean
+  onAdvance: () => void
+}) {
+  const mode = paymentMode(order)
+  const advance = orderAdvance(order)
+  const balance = orderBalance(order)
   return (
     <div className="admin-order-detail">
       <ul className="admin-order-lines">
@@ -499,6 +568,7 @@ function OrderDetail({ order }: { order: StoreOrder }) {
                 <strong>
                   {line.quantity}× {line.name}
                 </strong>
+                {isCustomOrderLine(line) ? <em>No registrada</em> : null}
                 {options ? <em>{options}</em> : null}
               </div>
               <span>{formatPen(line.unitPrice * line.quantity)}</span>
@@ -506,7 +576,17 @@ function OrderDetail({ order }: { order: StoreOrder }) {
           )
         })}
       </ul>
-      {order.note.trim() ? (
+      <p className="admin-order-pay">
+        <strong>{paymentLabel(mode)}</strong>
+        <span>Adelanto {formatPen(advance)}</span>
+        <span>Saldo {formatPen(balance)}</span>
+        {order.status !== "cancelado" ? (
+          <button type="button" className="btn btn--outline" disabled={busy} onClick={onAdvance}>
+            Editar adelanto
+          </button>
+        ) : null}
+      </p>
+      {order.note?.trim() ? (
         <p className="admin-order-note">
           <strong>Nota:</strong> {order.note}
         </p>
@@ -606,6 +686,12 @@ function Glyph({ name }: { name: string }) {
         <circle cx="12" cy="12" r="9" />
         <path d="M12 8v8" />
         <path d="M8 12h8" />
+      </>
+    ),
+    pin: (
+      <>
+        <path d="M12 17v5" />
+        <path d="M9 10.5a3 3 0 1 1 6 0c0 2.2-3 5.5-3 5.5s-3-3.3-3-5.5Z" />
       </>
     ),
     ok: <path d="M20 6 9 17l-5-5" />,
