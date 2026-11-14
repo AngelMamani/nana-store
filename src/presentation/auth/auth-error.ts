@@ -12,5 +12,9 @@ export function authErrorMessage(error: AuthFailure): string {
       return "Ya existe una cuenta con ese correo."
     case "invalid-credentials":
       return "Correo o contraseña incorrectos."
+    case "unauthorized-domain":
+      return "Este dominio no está autorizado en Firebase. Agrégalo en Authentication → Settings → Authorized domains."
+    case "redirect-pending":
+      return "Te estamos llevando a Google…"
   }
 }

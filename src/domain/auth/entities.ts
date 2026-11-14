@@ -42,6 +42,8 @@ export type AuthFailure =
   | { type: "weak-password" }
   | { type: "email-taken" }
   | { type: "invalid-credentials" }
+  | { type: "unauthorized-domain" }
+  | { type: "redirect-pending" }
 
 export type AuthResult<T> = { ok: true; value: T } | { ok: false; error: AuthFailure }
 

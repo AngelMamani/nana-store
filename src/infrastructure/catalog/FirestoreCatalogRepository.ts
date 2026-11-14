@@ -54,8 +54,9 @@ export class FirestoreCatalogRepository
       const productsSnap = await getDocs(collection(firebaseDb, "catalog_products"))
       if (productsSnap.empty) await this.#seedRemote()
       this.#listen()
-    } catch {
+    } catch (error) {
       this.#hydrated = false
+      console.error("No se pudo leer el catálogo de Firebase:", error)
     }
   }
 

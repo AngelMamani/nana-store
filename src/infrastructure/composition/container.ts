@@ -94,6 +94,7 @@ export const container = {
   loginCustomer: (input: { email: string; password: string }) =>
     firebaseAuthService.loginWithEmail(input.email, input.password),
   loginWithGoogle: () => firebaseAuthService.loginWithGoogle(),
+  completeGoogleRedirect: () => firebaseAuthService.completeGoogleRedirect(),
   logoutCustomer: () => {
     firebaseAuthService.logout()
     logoutCustomer(sessions)

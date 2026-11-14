@@ -141,8 +141,10 @@ export function LoginPage() {
                   const result = await auth.loginWithGoogle()
                   if (result.ok) {
                     redirectAfterLogin(navigate, result.value, location.search)
+                  } else if (result.error.type === "redirect-pending") {
+                    return
                   } else {
-                    setError("No se pudo iniciar sesión con Google")
+                    setError(authErrorMessage(result.error))
                   }
                 } catch (err) {
                   console.error("Error al iniciar sesión con Google:", err)

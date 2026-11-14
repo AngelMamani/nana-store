@@ -8,11 +8,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const unsubscribe = container.onAuthStateChanged((user) => {
-      setCustomer(user)
-      setLoading(false)
+    let active = true
+    let unsubscribe = () => {}
+    void container.completeGoogleRedirect().then((redirected) => {
+      if (!active) return
+      if (redirected) setCustomer(redirected)
+    }).finally(() => {
+      if (!active) return
+      unsubscribe = container.onAuthStateChanged((user) => {
+        setCustomer(user)
+        setLoading(false)
+      })
     })
-    return () => unsubscribe()
+    return () => {
+      active = false
+      unsubscribe()
+    }
   }, [])
 
   const value = useMemo<AuthContextValue>(
