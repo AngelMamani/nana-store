@@ -8,6 +8,8 @@ import {
   orderBalance,
   orderChannel,
   orderStatusLabel,
+  payMethodLabel,
+  payMethodOf,
   paymentLabel,
   paymentMode,
   type OrderStatus,
@@ -26,6 +28,19 @@ function accountInitials(name: string) {
 
 function statusLabel(status: OrderStatus) {
   return orderStatusLabel(status, "customer")
+}
+
+function orderPaySummary(order: StoreOrder) {
+  const method = payMethodOf(order)
+  const mode = paymentMode(order)
+  if (mode !== "contraEntrega" && !method) return null
+  const parts = [paymentLabel(mode)]
+  if (method) parts.push(payMethodLabel(method))
+  if (mode === "contraEntrega") {
+    parts.push(`Adelanto ${formatPen(orderAdvance(order))}`)
+    parts.push(`Saldo ${formatPen(orderBalance(order))}`)
+  }
+  return parts.join(" · ")
 }
 
 function formatDate(value: string) {
@@ -145,7 +160,9 @@ export function AccountPage() {
           </p>
         ) : null}
         <ul className="account-orders__list">
-          {orders.map((order) => (
+          {orders.map((order) => {
+            const paySummary = orderPaySummary(order)
+            return (
             <li key={order.id} className={`account-order is-${order.status}`}>
               <div className="account-order__top">
                 <span className={`account-order__badge is-${order.status}`}>{statusLabel(order.status)}</span>
@@ -163,15 +180,11 @@ export function AccountPage() {
                   </li>
                 ))}
               </ul>
-              {paymentMode(order) === "contraEntrega" ? (
-                <p className="account-order__note">
-                  {paymentLabel("contraEntrega")} · Adelanto {formatPen(orderAdvance(order))} · Saldo{" "}
-                  {formatPen(orderBalance(order))}
-                </p>
-              ) : null}
+              {paySummary ? <p className="account-order__note">{paySummary}</p> : null}
               {order.note ? <p className="account-order__note">Nota: {order.note}</p> : null}
             </li>
-          ))}
+            )
+          })}
         </ul>
       </section>
 

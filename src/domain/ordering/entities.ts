@@ -3,6 +3,7 @@ import { variantOptionKey } from "../catalog/variants.ts"
 export type OrderStatus = "nuevo" | "reservado" | "atendido" | "cancelado"
 export type OrderChannel = "whatsapp" | "tienda"
 export type PaymentMode = "contado" | "contraEntrega"
+export type PayMethod = "efectivo" | "yape"
 
 export type OrderLine = {
   productId: string
@@ -24,6 +25,7 @@ export type StoreOrder = {
   lines: OrderLine[]
   channel?: OrderChannel
   paymentMode?: PaymentMode
+  payMethod?: PayMethod
   advance?: number
 }
 
@@ -42,6 +44,15 @@ export function paymentMode(order: StoreOrder): PaymentMode {
 
 export function paymentLabel(mode: PaymentMode) {
   return mode === "contraEntrega" ? "Contra entrega" : "Contado"
+}
+
+export function payMethodOf(order: StoreOrder): PayMethod | null {
+  if (order.payMethod === "yape" || order.payMethod === "efectivo") return order.payMethod
+  return null
+}
+
+export function payMethodLabel(method: PayMethod) {
+  return method === "yape" ? "Yape" : "Efectivo"
 }
 
 export function orderAdvance(order: StoreOrder) {

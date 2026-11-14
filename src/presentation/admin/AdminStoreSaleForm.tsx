@@ -7,7 +7,7 @@ import {
   selectionComplete,
 } from "../../domain/catalog/pricing.ts"
 import type { Product } from "../../domain/catalog/entities.ts"
-import type { OrderLine, PaymentMode } from "../../domain/ordering/entities.ts"
+import type { OrderLine, PayMethod, PaymentMode } from "../../domain/ordering/entities.ts"
 import { container } from "../../infrastructure/composition/container.ts"
 import { useCatalog } from "../catalog/catalog-context.ts"
 import { showAdminError, showAdminSuccess } from "./admin-alerts.ts"
@@ -29,6 +29,7 @@ export function AdminStoreSaleForm({ onClose }: { onClose: () => void }) {
   const [customerEmail, setCustomerEmail] = useState("")
   const [note, setNote] = useState("")
   const [paymentMode, setPaymentMode] = useState<PaymentMode>("contado")
+  const [payMethod, setPayMethod] = useState<PayMethod>("efectivo")
   const [advance, setAdvance] = useState("")
   const [customName, setCustomName] = useState("")
   const [customPrice, setCustomPrice] = useState("")
@@ -119,14 +120,15 @@ export function AdminStoreSaleForm({ onClose }: { onClose: () => void }) {
         customerEmail,
         note,
         paymentMode,
+        payMethod,
         advance: paymentMode === "contraEntrega" ? advanceAmount : total,
         lines: lines.map(({ key: _key, ...line }) => line),
       })
       await showAdminSuccess(
         paymentMode === "contraEntrega" ? "Pedido reservado" : "Venta registrada",
         paymentMode === "contraEntrega"
-          ? "Quedó contra entrega: el stock de las prendas del catálogo se apartó."
-          : "Quedó como atendida en Pedidos.",
+          ? `Quedó contra entrega (${payMethod === "yape" ? "Yape" : "efectivo"}): el stock de las prendas del catálogo se apartó.`
+          : `Quedó como atendida. Pagó con ${payMethod === "yape" ? "Yape" : "efectivo"}.`,
       )
       onClose()
     } catch {
@@ -150,7 +152,8 @@ export function AdminStoreSaleForm({ onClose }: { onClose: () => void }) {
           </button>
         </header>
 
-        <div className="admin-sale__pay" role="group" aria-label="Forma de pago">
+        <p className="admin-kicker">Cuándo cobra</p>
+        <div className="admin-sale__pay" role="group" aria-label="Cuándo cobra">
           <button
             type="button"
             className={paymentMode === "contado" ? "is-active" : ""}
@@ -164,6 +167,23 @@ export function AdminStoreSaleForm({ onClose }: { onClose: () => void }) {
             onClick={() => setPaymentMode("contraEntrega")}
           >
             Contra entrega
+          </button>
+        </div>
+        <p className="admin-kicker">Cómo paga</p>
+        <div className="admin-sale__pay" role="group" aria-label="Método de pago">
+          <button
+            type="button"
+            className={payMethod === "efectivo" ? "is-active" : ""}
+            onClick={() => setPayMethod("efectivo")}
+          >
+            Efectivo
+          </button>
+          <button
+            type="button"
+            className={payMethod === "yape" ? "is-active" : ""}
+            onClick={() => setPayMethod("yape")}
+          >
+            Yape
           </button>
         </div>
 

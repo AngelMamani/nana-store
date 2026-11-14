@@ -7,6 +7,8 @@ import {
   orderBalance,
   orderChannel,
   orderStatusLabel,
+  payMethodLabel,
+  payMethodOf,
   paymentLabel,
   paymentMode,
   type OrderChannel,
@@ -555,6 +557,7 @@ function OrderDetail({
   onAdvance: () => void
 }) {
   const mode = paymentMode(order)
+  const method = payMethodOf(order)
   const advance = orderAdvance(order)
   const balance = orderBalance(order)
   return (
@@ -577,7 +580,10 @@ function OrderDetail({
         })}
       </ul>
       <p className="admin-order-pay">
-        <strong>{paymentLabel(mode)}</strong>
+        <strong>
+          {paymentLabel(mode)}
+          {method ? ` · ${payMethodLabel(method)}` : ""}
+        </strong>
         <span>Adelanto {formatPen(advance)}</span>
         <span>Saldo {formatPen(balance)}</span>
         {order.status !== "cancelado" ? (

@@ -5,6 +5,7 @@ import {
   isCustomOrderLine,
   orderHoldsStock,
   type OrderLine,
+  type PayMethod,
   type PaymentMode,
   type StoreOrder,
 } from "../../domain/ordering/entities.ts"
@@ -81,6 +82,7 @@ export type StoreSaleInput = {
   note: string
   lines: OrderLine[]
   paymentMode: PaymentMode
+  payMethod: PayMethod
   advance: number
 }
 
@@ -103,6 +105,7 @@ export async function recordStoreSale(
     note: input.note.trim(),
     channel: "tienda",
     paymentMode: input.paymentMode,
+    payMethod: input.payMethod,
     advance: contraEntrega ? Math.min(Math.max(0, input.advance), total) : total,
     lines: input.lines,
   }
