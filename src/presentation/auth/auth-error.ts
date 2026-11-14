@@ -13,7 +13,7 @@ export function authErrorMessage(error: AuthFailure): string {
     case "invalid-credentials":
       return "Correo o contraseña incorrectos."
     case "unauthorized-domain":
-      return "Este dominio no está autorizado en Firebase. Agrégalo en Authentication → Settings → Authorized domains."
+      return "Agrega nana-store-two.vercel.app en Firebase Authentication → Settings → Authorized domains (sin https). No uses nana-store.vercel.app."
     case "redirect-pending":
       return "Te estamos llevando a Google…"
   }

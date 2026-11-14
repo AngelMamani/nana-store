@@ -1,5 +1,21 @@
 {
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Referrer-Policy", "value": "no-referrer" }
+      ]
+    }
+  ],
   "rewrites": [
+    {
+      "source": "/__/auth/:path*",
+      "destination": "https://nana-store-8b0ab.firebaseapp.com/__/auth/:path*"
+    },
+    {
+      "source": "/__/firebase/:path*",
+      "destination": "https://nana-store-8b0ab.firebaseapp.com/__/firebase/:path*"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"

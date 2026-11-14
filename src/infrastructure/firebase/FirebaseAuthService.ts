@@ -128,12 +128,7 @@ export class FirebaseAuthService {
   }
 
   async loginWithGoogle(): Promise<AuthResult<Customer>> {
-    const remoteHost = typeof window !== "undefined" && window.location.hostname !== "localhost"
     try {
-      if (remoteHost) {
-        await signInWithRedirect(firebaseAuth, googleAuthProvider)
-        return { ok: false, error: { type: "redirect-pending" } }
-      }
       const result = await signInWithPopup(firebaseAuth, googleAuthProvider)
       const customer = await this.#finishGoogleUser(result.user)
       return { ok: true, value: customer }
@@ -142,9 +137,18 @@ export class FirebaseAuthService {
       if (code === "auth/unauthorized-domain") {
         return { ok: false, error: { type: "unauthorized-domain" } }
       }
+      if (code === "auth/popup-closed-by-user") {
+        return { ok: false, error: { type: "invalid-credentials" } }
+      }
       if (code === "auth/popup-blocked" || code === "auth/cancelled-popup-request") {
-        await signInWithRedirect(firebaseAuth, googleAuthProvider)
-        return { ok: false, error: { type: "redirect-pending" } }
+        try {
+          await signInWithRedirect(firebaseAuth, googleAuthProvider)
+          return { ok: false, error: { type: "redirect-pending" } }
+        } catch (redirectError) {
+          if (authCode(redirectError) === "auth/unauthorized-domain") {
+            return { ok: false, error: { type: "unauthorized-domain" } }
+          }
+        }
       }
       return { ok: false, error: { type: "invalid-credentials" } }
     }
