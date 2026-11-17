@@ -1,13 +1,19 @@
 import { formatPen } from "../catalog/money.ts"
 import type { StoreProfile } from "../catalog/entities.ts"
 import {
+  discountLabel,
+  lineDiscount,
+  lineNet,
   orderAdvance,
   orderBalance,
+  orderDiscountOf,
   orderPhone,
+  orderSubtotal,
   payMethodLabel,
   payMethodOf,
   paymentLabel,
   paymentMode,
+  type DiscountKind,
   type OrderLine,
   type PayMethod,
   type PaymentMode,
@@ -23,7 +29,10 @@ export type ReceiptTicket = {
   printedAt: string
   customerName: string
   customerPhone: string
-  lines: { name: string; detail: string; quantity: number; unitPrice: number }[]
+  lines: { name: string; detail: string; quantity: number; unitPrice: number; net: number; off: string }[]
+  subtotal: number
+  discount: number
+  discountNote: string
   total: number
   advance: number
   balance: number
@@ -85,6 +94,8 @@ export function buildReceiptTicket(store: StoreProfile, input: {
   payMethod: PayMethod | null
   note: string
   reserved: boolean
+  discountKind?: DiscountKind | null
+  discountValue?: number
 }): ReceiptTicket {
   return {
     storeName: store.name.trim() || "NaNa",
@@ -100,7 +111,12 @@ export function buildReceiptTicket(store: StoreProfile, input: {
       detail: line.options.map((option) => option.title).filter(Boolean).join(" · "),
       quantity: line.quantity,
       unitPrice: line.unitPrice,
+      net: lineNet(line),
+      off: lineDiscount(line) > 0 ? discountLabel(line.discountKind, line.discountValue) : "",
     })),
+    subtotal: orderSubtotal(input.lines),
+    discount: orderDiscountOf(input),
+    discountNote: discountLabel(input.discountKind, input.discountValue),
     total: input.total,
     advance: input.advance,
     balance: input.balance,
@@ -124,6 +140,8 @@ export function receiptFromOrder(store: StoreProfile, order: StoreOrder): Receip
     payMethod: payMethodOf(order),
     note: order.note,
     reserved: order.status === "reservado" || mode === "contraEntrega",
+    discountKind: order.discountKind,
+    discountValue: order.discountValue,
   })
 }
 
@@ -143,12 +161,17 @@ export function receiptBodyLines(ticket: ReceiptTicket, columns = WIDTH) {
   lines.push(rule)
   for (const line of ticket.lines) {
     const qty = `${line.quantity}x `
-    const amount = money(line.unitPrice * line.quantity)
+    const amount = money(line.net)
     const name = fit(line.name, columns - qty.length - amount.length - 1)
     lines.push(padRow(`${qty}${name}`, amount, columns))
     if (line.detail) lines.push(`  ${fit(line.detail.replace(/·/g, "-"), columns - 2)}`)
+    if (line.off) lines.push(`  Dcto ${line.off}`)
   }
   lines.push(rule)
+  if (ticket.discount > 0) {
+    lines.push(padRow("Subtotal", money(ticket.subtotal), columns))
+    lines.push(padRow(`Dcto ${ticket.discountNote}`.trim(), `-${money(ticket.discount)}`, columns))
+  }
   lines.push(padRow("TOTAL", money(ticket.total), columns))
   if (ticket.reserved) {
     lines.push(padRow("Adelanto", money(ticket.advance), columns))

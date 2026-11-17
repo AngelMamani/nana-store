@@ -11,9 +11,16 @@ import { searchProducts } from "../../domain/catalog/search.ts"
 import { productStock } from "../../domain/catalog/stock.ts"
 import type { Product } from "../../domain/catalog/entities.ts"
 import {
+  lineDiscount,
+  lineGross,
+  lineNet,
+  orderDiscountOf,
+  orderPayableTotal,
   orderPhone,
+  orderSubtotal,
   payMethodOf,
   paymentMode as paymentModeOf,
+  type DiscountKind,
   type OrderLine,
   type PayMethod,
   type PaymentMode,
@@ -36,6 +43,43 @@ function draftLinesFromOrder(order: StoreOrder): DraftLine[] {
     ...line,
     key: line.custom || line.productId.startsWith("custom:") ? line.productId : lineKey(line.productId, line.options),
   }))
+}
+
+function DiscountControls({
+  kind,
+  value,
+  onKind,
+  onValue,
+}: {
+  kind: DiscountKind | null
+  value: string
+  onKind: (kind: DiscountKind | null) => void
+  onValue: (value: string) => void
+}) {
+  return (
+    <div className="admin-sale__pay admin-sale__off">
+      <button type="button" className={!kind ? "is-active" : ""} onClick={() => onKind(null)}>
+        No
+      </button>
+      <button type="button" className={kind === "percent" ? "is-active" : ""} onClick={() => onKind("percent")}>
+        %
+      </button>
+      <button type="button" className={kind === "amount" ? "is-active" : ""} onClick={() => onKind("amount")}>
+        S/
+      </button>
+      {kind ? (
+        <input
+          type="number"
+          min="0"
+          max={kind === "percent" ? 100 : undefined}
+          step={kind === "percent" ? "1" : "0.01"}
+          value={value}
+          onChange={(event) => onValue(event.target.value)}
+          placeholder={kind === "percent" ? "10" : "5.00"}
+        />
+      ) : null}
+    </div>
+  )
 }
 
 export function AdminStoreSaleForm({
@@ -63,6 +107,8 @@ export function AdminStoreSaleForm({
   const [advance, setAdvance] = useState(order && order.advance != null ? String(order.advance) : "")
   const [customName, setCustomName] = useState("")
   const [customPrice, setCustomPrice] = useState("")
+  const [discountKind, setDiscountKind] = useState<DiscountKind | null>(order?.discountKind ?? null)
+  const [discountValue, setDiscountValue] = useState(order?.discountValue ? String(order.discountValue) : "")
   const [busy, setBusy] = useState(false)
   const [pane, setPane] = useState<"catalog" | "ticket">(order ? "ticket" : "catalog")
 
@@ -78,7 +124,14 @@ export function AdminStoreSaleForm({
     return inCategory.slice(0, 80)
   }, [products, search, categoryId])
 
-  const total = lines.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0)
+  const saleDiscounts = {
+    lines,
+    discountKind,
+    discountValue: Number(discountValue) || 0,
+  }
+  const subtotal = orderSubtotal(lines)
+  const totalOff = orderDiscountOf(saleDiscounts)
+  const total = orderPayableTotal(saleDiscounts)
   const advanceAmount = Math.min(Math.max(0, Number(advance) || 0), total)
   const balance = Math.max(0, total - advanceAmount)
 
@@ -157,6 +210,8 @@ export function AdminStoreSaleForm({
       paymentMode,
       payMethod,
       advance: reserved ? advanceAmount : total,
+      discountKind,
+      discountValue: Number(discountValue) || 0,
       lines: lines.map(({ key: _key, ...line }) => line),
     }
     try {
@@ -184,6 +239,8 @@ export function AdminStoreSaleForm({
             payMethod,
             note,
             reserved,
+            discountKind,
+            discountValue: Number(discountValue) || 0,
           }),
         )
       } catch (error) {
@@ -385,7 +442,10 @@ export function AdminStoreSaleForm({
                         <em>{line.options.map((option) => option.title).join(" · ")}</em>
                       ) : null}
                     </div>
-                    <span>{formatPen(line.unitPrice * line.quantity)}</span>
+                    <span>
+                      {lineDiscount(line) > 0 ? <s>{formatPen(lineGross(line))}</s> : null}
+                      {formatPen(lineNet(line))}
+                    </span>
                     <div className="admin-stock-stepper">
                       <button
                         type="button"
@@ -417,12 +477,47 @@ export function AdminStoreSaleForm({
                         +
                       </button>
                     </div>
+                    <DiscountControls
+                      kind={line.discountKind ?? null}
+                      value={line.discountValue ? String(line.discountValue) : ""}
+                      onKind={(kind) =>
+                        setLines((current) =>
+                          current.map((item) =>
+                            item.key === line.key
+                              ? { ...item, discountKind: kind, discountValue: kind ? item.discountValue || 0 : 0 }
+                              : item,
+                          ),
+                        )
+                      }
+                      onValue={(value) =>
+                        setLines((current) =>
+                          current.map((item) =>
+                            item.key === line.key ? { ...item, discountValue: Number(value) || 0 } : item,
+                          ),
+                        )
+                      }
+                    />
                   </li>
                 ))}
               </ul>
             ) : (
               <p className="admin-sale__hint">Selecciona una prenda del catálogo para armar el pedido.</p>
             )}
+
+            {lines.length > 0 ? (
+              <div className="admin-sale__block">
+                <p className="admin-kicker">Descuento al total</p>
+                <DiscountControls
+                  kind={discountKind}
+                  value={discountValue}
+                  onKind={(kind) => {
+                    setDiscountKind(kind)
+                    if (!kind) setDiscountValue("")
+                  }}
+                  onValue={setDiscountValue}
+                />
+              </div>
+            ) : null}
 
             <div className="admin-sale__block">
               <p className="admin-kicker">Cobro</p>
@@ -523,6 +618,8 @@ export function AdminStoreSaleForm({
             <footer>
               <div>
                 <em>{payMethod === "yape" ? "Yape" : "Efectivo"}{paymentMode === "contraEntrega" ? " · contra entrega" : ""}</em>
+                {totalOff > 0 || subtotal !== total ? <small>Subtotal {formatPen(subtotal)}</small> : null}
+                {totalOff > 0 ? <small>Descuento −{formatPen(totalOff)}</small> : null}
                 <strong>{formatPen(total)}</strong>
                 {paymentMode === "contraEntrega" ? (
                   <small>

@@ -4,6 +4,8 @@ import { findVariantByOptions } from "../../domain/catalog/variants.ts"
 import {
   isCustomOrderLine,
   orderHoldsStock,
+  orderPayableTotal,
+  type DiscountKind,
   type OrderLine,
   type PayMethod,
   type PaymentMode,
@@ -89,6 +91,8 @@ export type StoreSaleInput = {
   paymentMode: PaymentMode
   payMethod: PayMethod
   advance: number
+  discountKind?: DiscountKind | null
+  discountValue?: number
 }
 
 function normalizePhone(value: string) {
@@ -103,7 +107,7 @@ export async function recordStoreSale(
   input: StoreSaleInput,
 ): Promise<void> {
   if (!input.lines.length) return
-  const total = input.lines.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0)
+  const total = orderPayableTotal(input)
   const phone = normalizePhone(input.customerPhone)
   const contraEntrega = input.paymentMode === "contraEntrega"
   const now = new Date().toISOString()
@@ -120,6 +124,8 @@ export async function recordStoreSale(
     channel: "tienda",
     paymentMode: input.paymentMode,
     payMethod: input.payMethod,
+    discountKind: input.discountKind ?? null,
+    discountValue: input.discountKind ? Number(input.discountValue) || 0 : 0,
     advance: contraEntrega ? Math.min(Math.max(0, input.advance), total) : total,
     lines: input.lines,
   }
@@ -134,7 +140,7 @@ export async function updateStoreSale(
   input: StoreSaleInput,
 ): Promise<void> {
   if (!input.lines.length) return
-  const total = input.lines.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0)
+  const total = orderPayableTotal(input)
   const phone = normalizePhone(input.customerPhone)
   const contraEntrega = input.paymentMode === "contraEntrega"
   const now = new Date().toISOString()
@@ -150,6 +156,8 @@ export async function updateStoreSale(
     note: input.note.trim(),
     paymentMode: input.paymentMode,
     payMethod: input.payMethod,
+    discountKind: input.discountKind ?? null,
+    discountValue: input.discountKind ? Number(input.discountValue) || 0 : 0,
     advance: contraEntrega ? Math.min(Math.max(0, input.advance), total) : total,
     lines: input.lines,
   }

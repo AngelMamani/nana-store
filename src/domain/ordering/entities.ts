@@ -4,6 +4,7 @@ export type OrderStatus = "nuevo" | "reservado" | "atendido" | "cancelado"
 export type OrderChannel = "whatsapp" | "tienda"
 export type PaymentMode = "contado" | "contraEntrega"
 export type PayMethod = "efectivo" | "yape"
+export type DiscountKind = "percent" | "amount"
 
 export type OrderLine = {
   productId: string
@@ -12,6 +13,8 @@ export type OrderLine = {
   unitPrice: number
   options: { name: string; title: string }[]
   custom?: boolean
+  discountKind?: DiscountKind | null
+  discountValue?: number
 }
 
 export type StoreOrder = {
@@ -29,6 +32,8 @@ export type StoreOrder = {
   paymentMode?: PaymentMode
   payMethod?: PayMethod
   advance?: number
+  discountKind?: DiscountKind | null
+  discountValue?: number
 }
 
 export function orderChannel(order: StoreOrder): OrderChannel {
@@ -76,6 +81,56 @@ export function payMethodOf(order: StoreOrder): PayMethod | null {
 
 export function payMethodLabel(method: PayMethod) {
   return method === "yape" ? "Yape" : "Efectivo"
+}
+
+function money2(amount: number) {
+  return Math.round(amount * 100) / 100
+}
+
+export function discountAmount(base: number, kind?: DiscountKind | null, value?: number) {
+  const amount = Number(value)
+  if (!kind || !Number.isFinite(amount) || amount <= 0 || base <= 0) return 0
+  if (kind === "percent") return money2(Math.min(base, (base * Math.min(amount, 100)) / 100))
+  return money2(Math.min(base, amount))
+}
+
+export function discountLabel(kind?: DiscountKind | null, value?: number) {
+  const amount = Number(value)
+  if (!kind || !Number.isFinite(amount) || amount <= 0) return ""
+  if (kind === "percent") return `${amount % 1 === 0 ? amount.toFixed(0) : amount}%`
+  return `S/${amount.toFixed(2)}`
+}
+
+export function lineGross(line: Pick<OrderLine, "unitPrice" | "quantity">) {
+  return money2(line.unitPrice * line.quantity)
+}
+
+export function lineDiscount(line: OrderLine) {
+  return discountAmount(lineGross(line), line.discountKind, line.discountValue)
+}
+
+export function lineNet(line: OrderLine) {
+  return money2(lineGross(line) - lineDiscount(line))
+}
+
+export function orderSubtotal(lines: OrderLine[]) {
+  return money2(lines.reduce((sum, line) => sum + lineNet(line), 0))
+}
+
+export function orderDiscountOf(order: {
+  lines: OrderLine[]
+  discountKind?: DiscountKind | null
+  discountValue?: number
+}) {
+  return discountAmount(orderSubtotal(order.lines), order.discountKind, order.discountValue)
+}
+
+export function orderPayableTotal(order: {
+  lines: OrderLine[]
+  discountKind?: DiscountKind | null
+  discountValue?: number
+}) {
+  return money2(orderSubtotal(order.lines) - orderDiscountOf(order))
 }
 
 export function orderAdvance(order: StoreOrder) {

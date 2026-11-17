@@ -2,7 +2,13 @@ import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react"
 import { formatPen } from "../../domain/catalog/money.ts"
 import {
   channelLabel,
+  discountLabel,
   isCustomOrderLine,
+  lineDiscount,
+  lineGross,
+  lineNet,
+  orderDiscountOf,
+  orderSubtotal,
   orderAdvance,
   orderBalance,
   orderChannel,
@@ -744,11 +750,23 @@ function OrderDetail({
                 {isCustomOrderLine(line) ? <em>No registrada</em> : null}
                 {options ? <em>{options}</em> : null}
               </div>
-              <span>{formatPen(line.unitPrice * line.quantity)}</span>
+              <span>
+                {lineDiscount(line) > 0 ? <s>{formatPen(lineGross(line))}</s> : null}
+                {formatPen(lineNet(line))}
+                {lineDiscount(line) > 0 ? <em>Dcto {discountLabel(line.discountKind, line.discountValue)}</em> : null}
+              </span>
             </li>
           )
         })}
       </ul>
+      {orderDiscountOf(order) > 0 ? (
+        <p className="admin-order-pay">
+          <strong>Descuento {discountLabel(order.discountKind, order.discountValue)}</strong>
+          <span>Subtotal {formatPen(orderSubtotal(order.lines))}</span>
+          <span>−{formatPen(orderDiscountOf(order))}</span>
+          <span>Total {formatPen(order.total)}</span>
+        </p>
+      ) : null}
       <p className="admin-order-pay">
         <strong>
           {paymentLabel(mode)}
