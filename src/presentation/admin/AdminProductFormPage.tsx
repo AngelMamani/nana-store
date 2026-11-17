@@ -4,6 +4,7 @@ import type { Product } from "../../domain/catalog/entities.ts"
 import { extractColors, extractSizes, rebuildVariations, variantOptionKey } from "../../domain/catalog/variants.ts"
 import { container } from "../../infrastructure/composition/container.ts"
 import { useCatalog } from "../catalog/catalog-context.ts"
+import { AdminBarcodeScan } from "./AdminBarcodeScan.tsx"
 import { showAdminError, showAdminSuccess } from "./admin-alerts.ts"
 
 type FormState = {
@@ -66,6 +67,7 @@ export function AdminProductFormPage() {
   const [colors, setColors] = useState(() => extractColors(existing?.variations ?? []))
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(0)
+  const [scanOpen, setScanOpen] = useState(false)
   const [gallery, setGallery] = useState<string[]>(() => uniqueGallery(existing))
   const [stocks, setStocks] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {}
@@ -250,7 +252,17 @@ export function AdminProductFormPage() {
         <div className="admin-form__row">
           <label>
             Código
-            <input value={form.code} onChange={(event) => patch({ code: event.target.value })} />
+            <div className="admin-form__code">
+              <input
+                value={form.code}
+                onChange={(event) => patch({ code: event.target.value })}
+                placeholder="Escanear o escribir"
+                autoComplete="off"
+              />
+              <button type="button" className="btn btn--outline" onClick={() => setScanOpen(true)}>
+                Escanear
+              </button>
+            </div>
           </label>
           <label>
             Categoría
@@ -475,6 +487,15 @@ export function AdminProductFormPage() {
           {saving ? "Guardando…" : "Guardar producto"}
         </button>
       </form>
+      {scanOpen ? (
+        <AdminBarcodeScan
+          onClose={() => setScanOpen(false)}
+          onDetect={(code) => {
+            patch({ code })
+            setScanOpen(false)
+          }}
+        />
+      ) : null}
     </div>
   )
 }
