@@ -6019,12 +6019,23 @@ legend { font-weight: 800; margin-bottom: 8px; }
 
 .admin-sale__ticket footer {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 12px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
   flex: none;
   padding-top: 12px;
   border-top: 1px solid var(--admin-line);
+}
+
+.admin-sale__total-off {
+  margin: 0;
+}
+
+.admin-sale__payrow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
 }
 
 .admin-sale__ticket footer em,
@@ -6046,6 +6057,12 @@ legend { font-weight: 800; margin-bottom: 8px; }
 .admin-sale__ticket footer .btn {
   margin: 0;
   min-width: 120px;
+}
+
+.admin-sale__ticket footer .admin-sale__pay button {
+  flex: 0 0 auto;
+  min-width: 44px;
+  min-height: 36px;
 }
 
 .admin-order-card {
@@ -7427,6 +7444,10 @@ legend { font-weight: 800; margin-bottom: 8px; }
   }
 
   .admin-sale__ticket footer {
+    flex-wrap: nowrap;
+  }
+
+  .admin-sale__payrow {
     flex-wrap: wrap;
   }
 

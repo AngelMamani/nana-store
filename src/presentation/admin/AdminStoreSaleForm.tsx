@@ -504,21 +504,6 @@ export function AdminStoreSaleForm({
               <p className="admin-sale__hint">Selecciona una prenda del catálogo para armar el pedido.</p>
             )}
 
-            {lines.length > 0 ? (
-              <div className="admin-sale__block">
-                <p className="admin-kicker">Descuento al total</p>
-                <DiscountControls
-                  kind={discountKind}
-                  value={discountValue}
-                  onKind={(kind) => {
-                    setDiscountKind(kind)
-                    if (!kind) setDiscountValue("")
-                  }}
-                  onValue={setDiscountValue}
-                />
-              </div>
-            ) : null}
-
             <div className="admin-sale__block">
               <p className="admin-kicker">Cobro</p>
               <div className="admin-sale__pay" role="group" aria-label="Cuándo cobra">
@@ -616,26 +601,42 @@ export function AdminStoreSaleForm({
             </div>
 
             <footer>
-              <div>
-                <em>{payMethod === "yape" ? "Yape" : "Efectivo"}{paymentMode === "contraEntrega" ? " · contra entrega" : ""}</em>
-                {totalOff > 0 || subtotal !== total ? <small>Subtotal {formatPen(subtotal)}</small> : null}
-                {totalOff > 0 ? <small>Descuento −{formatPen(totalOff)}</small> : null}
-                <strong>{formatPen(total)}</strong>
-                {paymentMode === "contraEntrega" ? (
-                  <small>
-                    Adelanto {formatPen(advanceAmount)} · Saldo {formatPen(balance)}
-                  </small>
-                ) : null}
+              {lines.length > 0 ? (
+                <label className="admin-sale__advance admin-sale__total-off">
+                  Descuento al total
+                  <DiscountControls
+                    kind={discountKind}
+                    value={discountValue}
+                    onKind={(kind) => {
+                      setDiscountKind(kind)
+                      if (!kind) setDiscountValue("")
+                    }}
+                    onValue={setDiscountValue}
+                  />
+                </label>
+              ) : null}
+              <div className="admin-sale__payrow">
+                <div>
+                  <em>{payMethod === "yape" ? "Yape" : "Efectivo"}{paymentMode === "contraEntrega" ? " · contra entrega" : ""}</em>
+                  {totalOff > 0 || subtotal !== total ? <small>Subtotal {formatPen(subtotal)}</small> : null}
+                  {totalOff > 0 ? <small>Descuento −{formatPen(totalOff)}</small> : null}
+                  <strong>{formatPen(total)}</strong>
+                  {paymentMode === "contraEntrega" ? (
+                    <small>
+                      Adelanto {formatPen(advanceAmount)} · Saldo {formatPen(balance)}
+                    </small>
+                  ) : null}
+                </div>
+                <button type="button" className="btn btn--primary" disabled={!lines.length || busy} onClick={() => void save()}>
+                  {busy
+                    ? "Guardando…"
+                    : paymentMode === "contraEntrega"
+                      ? editing
+                        ? "Guardar"
+                        : "Reservar"
+                      : "Cobrar"}
+                </button>
               </div>
-              <button type="button" className="btn btn--primary" disabled={!lines.length || busy} onClick={() => void save()}>
-                {busy
-                  ? "Guardando…"
-                  : paymentMode === "contraEntrega"
-                    ? editing
-                      ? "Guardar"
-                      : "Reservar"
-                    : "Cobrar"}
-              </button>
             </footer>
           </aside>
         </div>
