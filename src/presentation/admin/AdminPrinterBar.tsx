@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import {
-  canUseBluetoothPrinter,
+  bluetoothPrinterAvailable,
   canUseUsbPrinter,
   connectBluetoothPrinter,
   connectUsbPrinter,
@@ -14,10 +14,12 @@ import { showAdminError, showAdminSuccess } from "./admin-alerts.ts"
 export function AdminPrinterBar() {
   const [, setTick] = useState(0)
   const [busy, setBusy] = useState(false)
+  const [bluetoothOk, setBluetoothOk] = useState(false)
   const status = getPrinterStatus()
 
   useEffect(() => {
     const stop = subscribePrinter(() => setTick((value) => value + 1))
+    void bluetoothPrinterAvailable().then(setBluetoothOk)
     void reconnectSavedPrinter()
     return stop
   }, [])
@@ -46,20 +48,12 @@ export function AdminPrinterBar() {
             ? status.link === "bluetooth"
               ? "Bluetooth listo para imprimir"
               : "USB/COM listo para imprimir"
-            : "Al imprimir se abre el selector. PIN de la POS58: 0000."}
+            : canUseUsbPrinter()
+              ? "Pulsa USB/COM y elige el cable o el puerto COM de la POS58. En Windows Chrome no usa Bluetooth clásico."
+              : "Al imprimir se abre el selector. PIN de la POS58: 0000."}
         </em>
       </div>
       <div className="admin-printer__actions">
-        {canUseBluetoothPrinter() ? (
-          <button
-            type="button"
-            className="btn btn--outline"
-            disabled={busy}
-            onClick={() => void run(connectBluetoothPrinter, "Quedó vinculada por Bluetooth.")}
-          >
-            Bluetooth
-          </button>
-        ) : null}
         {canUseUsbPrinter() ? (
           <button
             type="button"
@@ -68,6 +62,16 @@ export function AdminPrinterBar() {
             onClick={() => void run(connectUsbPrinter, "Quedó vinculada por USB/COM.")}
           >
             USB / COM
+          </button>
+        ) : null}
+        {bluetoothOk ? (
+          <button
+            type="button"
+            className="btn btn--outline"
+            disabled={busy}
+            onClick={() => void run(connectBluetoothPrinter, "Quedó vinculada por Bluetooth.")}
+          >
+            Bluetooth
           </button>
         ) : null}
         {status.connected ? (

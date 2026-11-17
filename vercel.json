@@ -3,7 +3,8 @@
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "Referrer-Policy", "value": "no-referrer" }
+        { "key": "Referrer-Policy", "value": "no-referrer" },
+        { "key": "Permissions-Policy", "value": "bluetooth=(self), serial=(self), usb=(self), camera=(self), microphone=()" }
       ]
     }
   ],

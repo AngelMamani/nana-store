@@ -45,6 +45,8 @@ type BluetoothNavigator = Navigator & {
       filters?: { namePrefix?: string; name?: string }[]
       optionalServices?: string[]
     }) => Promise<BluetoothDeviceLike>
+    getAvailability?: () => Promise<boolean>
+    getDevices?: () => Promise<BluetoothDeviceLike[]>
   }
 }
 
@@ -52,12 +54,6 @@ type SerialNavigator = Navigator & {
   serial?: {
     requestPort: () => Promise<SerialPortLike>
     getPorts?: () => Promise<SerialPortLike[]>
-  }
-}
-
-type BluetoothNavigatorWithSaved = BluetoothNavigator & {
-  bluetooth?: BluetoothNavigator["bluetooth"] & {
-    getDevices?: () => Promise<BluetoothDeviceLike[]>
   }
 }
 
@@ -294,6 +290,27 @@ export function canUseUsbPrinter() {
   return Boolean((navigator as SerialNavigator).serial)
 }
 
+export async function bluetoothPrinterAvailable() {
+  const api = (navigator as BluetoothNavigator).bluetooth
+  if (!api) return false
+  try {
+    if (api.getAvailability) return await api.getAvailability()
+    return true
+  } catch {
+    return false
+  }
+}
+
+function isBluetoothBlockedError(error: unknown) {
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase()
+  return (
+    message.includes("globally disabled") ||
+    message.includes("permission has been blocked") ||
+    (message.includes("bluetooth") && message.includes("block")) ||
+    message.includes("not allowed by permissions")
+  )
+}
+
 async function openSerialPort(port: SerialPortLike, name: string) {
   try {
     await port.open({ baudRate: 9600 })
@@ -358,17 +375,18 @@ export async function reconnectSavedPrinter() {
       }
     }
   }
-  const bluetooth = (navigator as BluetoothNavigatorWithSaved).bluetooth
+  if (!(await bluetoothPrinterAvailable())) return status.connected
+  const bluetooth = (navigator as BluetoothNavigator).bluetooth
   if (bluetooth?.getDevices) {
-    const devices = await bluetooth.getDevices()
-    const printer = devices.find((device) => /pos|print|mtp|rpp/i.test(device.name ?? "")) ?? devices[0]
-    if (printer) {
-      try {
+    try {
+      const devices = await bluetooth.getDevices()
+      const printer = devices.find((device) => /pos|print|mtp|rpp/i.test(device.name ?? "")) ?? devices[0]
+      if (printer) {
         await attachBluetoothDevice(printer)
         return true
-      } catch {
-        /* hay que volver a pedir permiso */
       }
+    } catch {
+      /* Bluetooth bloqueado o hay que volver a pedir permiso */
     }
   }
   return status.connected
@@ -376,7 +394,9 @@ export async function reconnectSavedPrinter() {
 
 export async function connectBluetoothPrinter() {
   const api = (navigator as BluetoothNavigator).bluetooth
-  if (!api) throw new Error("Este navegador no permite Bluetooth. Usa Chrome en Android.")
+  if (!api || !(await bluetoothPrinterAvailable())) {
+    throw new Error("Bluetooth está bloqueado en este navegador. En Windows usa USB/COM: la POS58 emparejada aparece como puerto COM.")
+  }
   let device: BluetoothDeviceLike
   try {
     device = await api.requestDevice({
@@ -402,19 +422,32 @@ export async function connectUsbPrinter() {
 export async function ensurePrinterConnected() {
   if (status.connected) return
   if (await reconnectSavedPrinter()) return
-  if (canUseBluetoothPrinter()) {
+  const usbOk = canUseUsbPrinter()
+  const btOk = await bluetoothPrinterAvailable()
+  if (usbOk) {
+    try {
+      await connectUsbPrinter()
+      return
+    } catch (error) {
+      if (isUserCancel(error) || !btOk) throw error
+    }
+  }
+  if (btOk) {
     try {
       await connectBluetoothPrinter()
       return
     } catch (error) {
-      if (!isUserCancel(error) || !canUseUsbPrinter()) throw error
+      if (isBluetoothBlockedError(error) && usbOk) {
+        await connectUsbPrinter()
+        return
+      }
+      if (isBluetoothBlockedError(error)) {
+        throw new Error("Bluetooth está bloqueado. En Windows vincula la POS58 y elige su puerto COM (USB/COM).")
+      }
+      throw error
     }
   }
-  if (canUseUsbPrinter()) {
-    await connectUsbPrinter()
-    return
-  }
-  throw new Error("Este navegador no puede hablar con la POS58. Usa Chrome o Edge.")
+  throw new Error("Usa Chrome o Edge. En Windows imprime por USB o por el COM de la POS58, no por Bluetooth de Chrome.")
 }
 
 export async function disconnectPrinter() {
