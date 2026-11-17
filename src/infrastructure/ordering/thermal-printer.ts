@@ -311,6 +311,12 @@ export function isAndroidClient() {
   return /Android/i.test(navigator.userAgent)
 }
 
+export function isIosClient() {
+  const ua = navigator.userAgent
+  if (/iPhone|iPad|iPod/i.test(ua)) return true
+  return navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1
+}
+
 export function canUseBluetoothPrinter() {
   return Boolean((navigator as BluetoothNavigator).bluetooth)
 }
@@ -464,6 +470,64 @@ function printWithRawBtImage(dataUrl: string) {
   window.location.assign(href)
 }
 
+function printImageDocument(dataUrl: string) {
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Boleta</title>
+<style>
+@page { size: 58mm auto; margin: 0; }
+html, body { margin: 0; background: #fff; }
+img { display: block; width: 58mm; max-width: 100%; height: auto; margin: 0 auto; }
+</style></head><body><img src="${dataUrl}" alt="Boleta"></body></html>`
+  const popup = window.open("", "_blank")
+  if (popup) {
+    popup.document.write(html)
+    popup.document.close()
+    const image = popup.document.querySelector("img")
+    const go = () => {
+      popup.focus()
+      popup.print()
+    }
+    if (image?.complete) setTimeout(go, 250)
+    else image?.addEventListener("load", () => setTimeout(go, 250))
+    return
+  }
+  const frame = document.createElement("iframe")
+  frame.setAttribute("aria-hidden", "true")
+  frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0"
+  document.body.appendChild(frame)
+  const doc = frame.contentDocument
+  if (!doc) throw new Error("No se pudo abrir la boleta para imprimir.")
+  doc.open()
+  doc.write(html)
+  doc.close()
+  const image = doc.querySelector("img")
+  const go = () => {
+    frame.contentWindow?.focus()
+    frame.contentWindow?.print()
+    setTimeout(() => frame.remove(), 2500)
+  }
+  if (image?.complete) setTimeout(go, 250)
+  else image?.addEventListener("load", () => setTimeout(go, 250))
+}
+
+async function printSystemImage(ticket: ReceiptTicket) {
+  const dataUrl = await renderReceiptJpeg(ticket)
+  try {
+    const blob = await (await fetch(dataUrl)).blob()
+    const file = new File([blob], "boleta.jpg", { type: "image/jpeg" })
+    const share = navigator as Navigator & {
+      canShare?: (data: { files?: File[] }) => boolean
+      share?: (data: { files?: File[]; title?: string }) => Promise<void>
+    }
+    if (share.share && (!share.canShare || share.canShare({ files: [file] }))) {
+      await share.share({ files: [file], title: "Boleta" })
+      return
+    }
+  } catch {
+    /* se usa el diálogo de imprimir */
+  }
+  printImageDocument(dataUrl)
+}
+
 function isUserCancel(error: unknown) {
   const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase()
   return message.includes("cancel") || message.includes("choos") || message.includes("not found")
@@ -549,25 +613,8 @@ export async function connectUsbPrinter() {
 export async function ensurePrinterConnected() {
   if (status.connected) return
   if (await reconnectSavedPrinter()) return
-  if (isAndroidClient()) {
-    if (canUseBluetoothPrinter()) {
-      try {
-        await connectBluetoothPrinter()
-        return
-      } catch (error) {
-        if (isUserCancel(error) || isBluetoothBlockedError(error)) {
-          useRawBtLink()
-          return
-        }
-        const message = error instanceof Error ? error.message : ""
-        if (message.includes("RawBT") || message.includes("canal BLE")) {
-          useRawBtLink()
-          return
-        }
-        throw error
-      }
-    }
-    useRawBtLink()
+  if (isAndroidClient() && canUseBluetoothPrinter()) {
+    await connectBluetoothPrinter()
     return
   }
   const usbOk = canUseUsbPrinter()
@@ -603,6 +650,10 @@ export async function disconnectPrinter() {
 }
 
 export async function printReceipt(ticket: ReceiptTicket) {
+  if (isIosClient() || (isAndroidClient() && !canUseBluetoothPrinter() && status.link === "none")) {
+    await printSystemImage(ticket)
+    return
+  }
   await ensurePrinterConnected()
   if (status.link === "android") {
     printWithRawBtImage(await renderReceiptJpeg(ticket))
