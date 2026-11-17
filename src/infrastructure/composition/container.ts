@@ -36,6 +36,7 @@ import {
   removeStoreOrder,
   updateOrderAdvance,
   updateOrderStatus,
+  updateStoreSale,
   type StoreSaleInput,
 } from "../../application/ordering/manage-orders.ts"
 import type { ProductSort } from "../../domain/catalog/search.ts"
@@ -111,6 +112,7 @@ export const container = {
   recordOrder: (cart: Cart, customer: { name: string; email: string } | null) =>
     recordWhatsappOrder(orders, cart, customer),
   recordStoreSale: (input: StoreSaleInput) => recordStoreSale(orders, catalog, input),
+  updateStoreSale: (order: StoreOrder, input: StoreSaleInput) => updateStoreSale(orders, catalog, order, input),
   updateOrderStatus: (order: StoreOrder, status: StoreOrder["status"], advance?: number) =>
     updateOrderStatus(orders, catalog, order, status, advance),
   updateOrderAdvance: (order: StoreOrder, advance: number) => updateOrderAdvance(orders, catalog, order, advance),

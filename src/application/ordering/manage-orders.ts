@@ -45,6 +45,11 @@ async function applyOrderStock(catalog: CatalogStock, lines: OrderLine[], direct
 async function syncStock(catalog: CatalogStock, previous: StoreOrder | null, next: StoreOrder) {
   const wasHolding = previous ? orderHoldsStock(previous.status) : false
   const willHold = orderHoldsStock(next.status)
+  if (wasHolding && willHold) {
+    await applyOrderStock(catalog, previous?.lines ?? [], "restore")
+    await applyOrderStock(catalog, next.lines, "consume")
+    return
+  }
   if (!wasHolding && willHold) await applyOrderStock(catalog, next.lines, "consume")
   if (wasHolding && !willHold) await applyOrderStock(catalog, previous?.lines ?? next.lines, "restore")
 }
@@ -78,12 +83,18 @@ export async function recordWhatsappOrder(
 
 export type StoreSaleInput = {
   customerName: string
-  customerEmail: string
+  customerPhone: string
   note: string
   lines: OrderLine[]
   paymentMode: PaymentMode
   payMethod: PayMethod
   advance: number
+}
+
+function normalizePhone(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  return trimmed.replace(/[^\d+\s-]/g, "").replace(/\s+/g, " ").trim() || null
 }
 
 export async function recordStoreSale(
@@ -93,7 +104,7 @@ export async function recordStoreSale(
 ): Promise<void> {
   if (!input.lines.length) return
   const total = input.lines.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0)
-  const email = input.customerEmail.trim()
+  const phone = normalizePhone(input.customerPhone)
   const contraEntrega = input.paymentMode === "contraEntrega"
   const now = new Date().toISOString()
   const order: StoreOrder = {
@@ -101,7 +112,8 @@ export async function recordStoreSale(
     createdAt: now,
     closedAt: contraEntrega ? undefined : now,
     customerName: input.customerName.trim() || "Cliente de tienda",
-    customerEmail: email ? normalizeEmail(email) : null,
+    customerEmail: null,
+    customerPhone: phone,
     total,
     status: contraEntrega ? "reservado" : "atendido",
     note: input.note.trim(),
@@ -113,6 +125,36 @@ export async function recordStoreSale(
   }
   await orders.saveOrder(order)
   await syncStock(catalog, null, order)
+}
+
+export async function updateStoreSale(
+  orders: OrderRepository,
+  catalog: CatalogStock,
+  order: StoreOrder,
+  input: StoreSaleInput,
+): Promise<void> {
+  if (!input.lines.length) return
+  const total = input.lines.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0)
+  const phone = normalizePhone(input.customerPhone)
+  const contraEntrega = input.paymentMode === "contraEntrega"
+  const now = new Date().toISOString()
+  const email = order.customerEmail?.includes("@") ? order.customerEmail : null
+  const next: StoreOrder = {
+    ...order,
+    customerName: input.customerName.trim() || order.customerName || "Cliente de tienda",
+    customerEmail: email,
+    customerPhone: phone,
+    total,
+    status: contraEntrega ? "reservado" : "atendido",
+    closedAt: contraEntrega ? undefined : (order.closedAt ?? now),
+    note: input.note.trim(),
+    paymentMode: input.paymentMode,
+    payMethod: input.payMethod,
+    advance: contraEntrega ? Math.min(Math.max(0, input.advance), total) : total,
+    lines: input.lines,
+  }
+  await orders.saveOrder(next)
+  await syncStock(catalog, order, next)
 }
 
 export async function updateOrderStatus(

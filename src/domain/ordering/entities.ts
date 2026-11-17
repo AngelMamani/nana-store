@@ -20,6 +20,7 @@ export type StoreOrder = {
   closedAt?: string
   customerName: string | null
   customerEmail: string | null
+  customerPhone?: string | null
   total: number
   status: OrderStatus
   note: string
@@ -36,6 +37,27 @@ export function orderChannel(order: StoreOrder): OrderChannel {
 
 export function channelLabel(channel: OrderChannel) {
   return channel === "tienda" ? "Tienda física" : "WhatsApp"
+}
+
+function looksLikePhone(value: string) {
+  const digits = value.replace(/\D/g, "")
+  return digits.length >= 7 && digits.length <= 15 && !value.includes("@")
+}
+
+export function orderPhone(order: StoreOrder) {
+  const phone = order.customerPhone?.trim()
+  if (phone) return phone
+  const email = order.customerEmail?.trim()
+  if (email && looksLikePhone(email)) return email
+  return null
+}
+
+export function orderContactLine(order: StoreOrder) {
+  const phone = orderPhone(order)
+  if (phone) return phone
+  const email = order.customerEmail?.trim()
+  if (email && !looksLikePhone(email)) return email
+  return "Sin número"
 }
 
 export function paymentMode(order: StoreOrder): PaymentMode {

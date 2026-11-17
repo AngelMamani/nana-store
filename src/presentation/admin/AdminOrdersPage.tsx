@@ -6,6 +6,8 @@ import {
   orderAdvance,
   orderBalance,
   orderChannel,
+  orderContactLine,
+  orderPhone,
   orderStatusLabel,
   payMethodLabel,
   payMethodOf,
@@ -68,6 +70,8 @@ function matchesQuery(order: StoreOrder, needle: string) {
     order.id,
     order.customerName ?? "",
     order.customerEmail ?? "",
+    order.customerPhone ?? "",
+    orderPhone(order) ?? "",
     order.note,
     order.status,
     orderChannel(order),
@@ -90,6 +94,7 @@ export function AdminOrdersPage() {
   const [openId, setOpenId] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [saleOpen, setSaleOpen] = useState(false)
+  const [saleOrder, setSaleOrder] = useState<StoreOrder | null>(null)
   const [periodMode, setPeriodMode] = useState<OrderPeriodMode>("day")
   const [anchorMs, setAnchorMs] = useState(() => startOfLocalDay(new Date()).getTime())
   const [liveToday, setLiveToday] = useState(true)
@@ -295,7 +300,14 @@ export function AdminOrdersPage() {
             siguen pendientes aunque cambie el día.
           </p>
         </div>
-        <button type="button" className="btn btn--primary" onClick={() => setSaleOpen(true)}>
+        <button
+          type="button"
+          className="btn btn--primary"
+          onClick={() => {
+            setSaleOrder(null)
+            setSaleOpen(true)
+          }}
+        >
           Venta en tienda
         </button>
       </section>
@@ -462,6 +474,10 @@ export function AdminOrdersPage() {
               onToggle={() => setOpenId(openId === order.id ? null : order.id)}
               onStatus={(status) => void setStatus(order, status)}
               onAdvance={() => void setAdvance(order)}
+              onEdit={() => {
+                setSaleOrder(order)
+                setSaleOpen(true)
+              }}
               onRemove={() => void removeOrder(order)}
             />
           ))}
@@ -487,11 +503,7 @@ export function AdminOrdersPage() {
                     <Fragment key={order.id}>
                       <tr className={`is-${order.status}`}>
                         <td>
-                          <div className="admin-order-client">
-                            <strong>{order.customerName ?? "Invitado"}</strong>
-                            <em>{order.customerEmail ?? "Sin correo"}</em>
-                            <b className={`admin-order-channel is-${orderChannel(order)}`}>{channelLabel(orderChannel(order))}</b>
-                          </div>
+                          <OrderClient order={order} />
                         </td>
                         <td>{formatDate(order.createdAt)}</td>
                         <td>{itemCount(order)}</td>
@@ -513,7 +525,22 @@ export function AdminOrdersPage() {
                             >
                               <Glyph name={open ? "up" : "down"} />
                             </button>
-                            <WhatsappButton phone={store.whatsapp} order={order} />
+                            {order.status === "reservado" ? (
+                              <button
+                                type="button"
+                                className="admin-order-edit"
+                                title="Editar"
+                                onClick={() => {
+                                  setSaleOrder(order)
+                                  setSaleOpen(true)
+                                }}
+                              >
+                                <Glyph name="edit" />
+                                <span>Editar</span>
+                              </button>
+                            ) : (
+                              <WhatsappButton phone={store.whatsapp} order={order} />
+                            )}
                             <button
                               type="button"
                               className="is-danger"
@@ -562,7 +589,15 @@ export function AdminOrdersPage() {
           </div>
         </nav>
       )}
-      {saleOpen ? <AdminStoreSaleForm onClose={() => setSaleOpen(false)} /> : null}
+      {saleOpen ? (
+        <AdminStoreSaleForm
+          order={saleOrder}
+          onClose={() => {
+            setSaleOpen(false)
+            setSaleOrder(null)
+          }}
+        />
+      ) : null}
     </div>
   )
 }
@@ -575,6 +610,7 @@ function OrderCard({
   onToggle,
   onStatus,
   onAdvance,
+  onEdit,
   onRemove,
 }: {
   order: StoreOrder
@@ -584,6 +620,7 @@ function OrderCard({
   onToggle: () => void
   onStatus: (status: OrderStatus) => void
   onAdvance: () => void
+  onEdit: () => void
   onRemove: () => void
 }) {
   return (
@@ -591,9 +628,7 @@ function OrderCard({
       <div className="admin-order-card__head">
         <div>
           <p>{formatDate(order.createdAt)}</p>
-          <h2>{order.customerName ?? "Invitado"}</h2>
-          <em>{order.customerEmail ?? "Sin correo"}</em>
-          <b className={`admin-order-channel is-${orderChannel(order)}`}>{channelLabel(orderChannel(order))}</b>
+          <OrderClient order={order} />
         </div>
         <StatusBadge status={order.status} />
       </div>
@@ -607,7 +642,14 @@ function OrderCard({
         <button type="button" title={open ? "Ocultar detalle" : "Ver detalle"} onClick={onToggle}>
           <Glyph name={open ? "up" : "down"} />
         </button>
-        <WhatsappButton phone={storeWhatsapp} order={order} />
+        {order.status === "reservado" ? (
+          <button type="button" className="admin-order-edit" title="Editar" onClick={onEdit}>
+            <Glyph name="edit" />
+            <span>Editar</span>
+          </button>
+        ) : (
+          <WhatsappButton phone={storeWhatsapp} order={order} />
+        )}
         <button type="button" className="is-danger" title="Eliminar" disabled={busy} onClick={onRemove}>
           <Glyph name="trash" />
         </button>
@@ -692,11 +734,26 @@ function OrderDetail({
           <strong>Nota:</strong> {order.note}
         </p>
       ) : null}
-      {order.customerEmail ? (
+      {orderPhone(order) ? (
+        <a className="admin-order-mail" href={`tel:${orderPhone(order)?.replace(/\s/g, "")}`}>
+          Llamar {orderPhone(order)}
+        </a>
+      ) : order.customerEmail?.includes("@") ? (
         <a className="admin-order-mail" href={`mailto:${order.customerEmail}`}>
           Escribir al correo
         </a>
       ) : null}
+    </div>
+  )
+}
+
+function OrderClient({ order }: { order: StoreOrder }) {
+  const channel = orderChannel(order)
+  return (
+    <div className="admin-order-client">
+      <strong>{order.customerName ?? "Invitado"}</strong>
+      <em>{orderContactLine(order)}</em>
+      <b className={`admin-order-channel is-${channel}`}>{channelLabel(channel)}</b>
     </div>
   )
 }
@@ -814,6 +871,12 @@ function Glyph({ name }: { name: string }) {
         <path d="M3 6h18" />
         <path d="M8 6V4h8v2" />
         <path d="M19 6l-1 14H6L5 6" />
+      </>
+    ),
+    edit: (
+      <>
+        <path d="M12 20h9" />
+        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
       </>
     ),
   }

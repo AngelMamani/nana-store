@@ -52,6 +52,7 @@ export async function showAdminSuccess(title: string, text?: string) {
     text,
     icon: "success",
     confirmButtonText: "Listo",
+    heightAuto: false,
   })
 }
 
@@ -61,6 +62,7 @@ export async function showAdminError(title: string, text?: string) {
     text,
     icon: "error",
     confirmButtonText: "Entendido",
+    heightAuto: false,
   })
 }
 

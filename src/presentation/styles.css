@@ -4357,6 +4357,10 @@ legend { font-weight: 800; margin-bottom: 8px; }
   color: #f6eef3 !important;
 }
 
+.swal2-container {
+  z-index: 2400;
+}
+
 .admin-cats-hero {
   padding: 22px 24px;
   border-radius: 24px;
@@ -5330,8 +5334,9 @@ legend { font-weight: 800; margin-bottom: 8px; }
 
 .admin-order-channel {
   display: inline-flex;
-  margin-top: 6px;
-  padding: 2px 8px;
+  align-items: center;
+  margin-top: 0;
+  padding: 3px 8px;
   border-radius: 999px;
   font-size: 10px;
   font-weight: 800;
@@ -5843,6 +5848,14 @@ legend { font-weight: 800; margin-bottom: 8px; }
   align-items: flex-start;
 }
 
+.admin-order-client {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+
 .admin-order-card__head p,
 .admin-order-client em,
 .admin-order-card__head em {
@@ -5854,9 +5867,14 @@ legend { font-weight: 800; margin-bottom: 8px; }
 
 .admin-order-card__head h2,
 .admin-order-client strong {
-  margin: 4px 0 2px;
+  margin: 0;
   font-size: 16px;
+  line-height: 1.25;
   color: var(--admin-ink);
+}
+
+.admin-order-card__head .admin-order-client {
+  margin-top: 4px;
 }
 
 .admin-order-card__meta {
@@ -6019,6 +6037,39 @@ legend { font-weight: 800; margin-bottom: 8px; }
 
 .admin-order-wa:hover {
   border-color: #1faa59;
+}
+
+.admin-products-actions .admin-order-edit,
+.admin-order-edit {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: auto;
+  min-width: 0;
+  height: 36px;
+  padding: 0 12px 0 10px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--pink) 32%, var(--admin-line));
+  background: var(--admin-card);
+  color: var(--pink-dark);
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: 0 1px 0 rgba(43, 36, 48, 0.04);
+}
+
+.admin-products-actions .admin-order-edit:hover,
+.admin-order-edit:hover {
+  border-color: var(--pink);
+  color: var(--pink-dark);
+  background: var(--pink-soft);
+}
+
+.admin-order-edit span {
+  line-height: 1;
 }
 
 .admin-table tr.is-nuevo td {

@@ -10,7 +10,15 @@ import {
 import { searchProducts } from "../../domain/catalog/search.ts"
 import { productStock } from "../../domain/catalog/stock.ts"
 import type { Product } from "../../domain/catalog/entities.ts"
-import type { OrderLine, PayMethod, PaymentMode } from "../../domain/ordering/entities.ts"
+import {
+  orderPhone,
+  payMethodOf,
+  paymentMode as paymentModeOf,
+  type OrderLine,
+  type PayMethod,
+  type PaymentMode,
+  type StoreOrder,
+} from "../../domain/ordering/entities.ts"
 import { container } from "../../infrastructure/composition/container.ts"
 import { useCatalog } from "../catalog/catalog-context.ts"
 import { showAdminError, showAdminSuccess } from "./admin-alerts.ts"
@@ -21,26 +29,40 @@ function lineKey(productId: string, options: OrderLine["options"]) {
   return `${productId}::${options.map((option) => `${option.name}:${option.title}`).join("|")}`
 }
 
-export function AdminStoreSaleForm({ onClose }: { onClose: () => void }) {
+function draftLinesFromOrder(order: StoreOrder): DraftLine[] {
+  return order.lines.map((line) => ({
+    ...line,
+    key: line.custom || line.productId.startsWith("custom:") ? line.productId : lineKey(line.productId, line.options),
+  }))
+}
+
+export function AdminStoreSaleForm({
+  onClose,
+  order = null,
+}: {
+  onClose: () => void
+  order?: StoreOrder | null
+}) {
   useCatalog()
   const products = container.listProducts()
   const categories = container.listCategories()
+  const editing = Boolean(order)
   const searchRef = useRef<HTMLInputElement>(null)
   const [search, setSearch] = useState("")
   const [categoryId, setCategoryId] = useState("all")
   const [picking, setPicking] = useState<Product | null>(null)
   const [selection, setSelection] = useState<Record<string, string>>({})
-  const [lines, setLines] = useState<DraftLine[]>([])
-  const [customerName, setCustomerName] = useState("")
-  const [customerEmail, setCustomerEmail] = useState("")
-  const [note, setNote] = useState("")
-  const [paymentMode, setPaymentMode] = useState<PaymentMode>("contado")
-  const [payMethod, setPayMethod] = useState<PayMethod>("efectivo")
-  const [advance, setAdvance] = useState("")
+  const [lines, setLines] = useState<DraftLine[]>(() => (order ? draftLinesFromOrder(order) : []))
+  const [customerName, setCustomerName] = useState(order?.customerName ?? "")
+  const [customerPhone, setCustomerPhone] = useState(order ? (orderPhone(order) ?? "") : "")
+  const [note, setNote] = useState(order?.note ?? "")
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>(order ? paymentModeOf(order) : "contado")
+  const [payMethod, setPayMethod] = useState<PayMethod>(order ? (payMethodOf(order) ?? "efectivo") : "efectivo")
+  const [advance, setAdvance] = useState(order && order.advance != null ? String(order.advance) : "")
   const [customName, setCustomName] = useState("")
   const [customPrice, setCustomPrice] = useState("")
   const [busy, setBusy] = useState(false)
-  const [pane, setPane] = useState<"catalog" | "ticket">("catalog")
+  const [pane, setPane] = useState<"catalog" | "ticket">(order ? "ticket" : "catalog")
 
   useEffect(() => {
     if (window.matchMedia("(min-width: 1024px)").matches) {
@@ -124,27 +146,30 @@ export function AdminStoreSaleForm({ onClose }: { onClose: () => void }) {
   async function save() {
     if (!lines.length || busy) return
     setBusy(true)
+    const reserved = paymentMode === "contraEntrega"
+    const method = payMethod === "yape" ? "Yape" : "efectivo"
+    const payload = {
+      customerName,
+      customerPhone,
+      note,
+      paymentMode,
+      payMethod,
+      advance: reserved ? advanceAmount : total,
+      lines: lines.map(({ key: _key, ...line }) => line),
+    }
     try {
-      await container.recordStoreSale({
-        customerName,
-        customerEmail,
-        note,
-        paymentMode,
-        payMethod,
-        advance: paymentMode === "contraEntrega" ? advanceAmount : total,
-        lines: lines.map(({ key: _key, ...line }) => line),
-      })
-      await showAdminSuccess(
-        paymentMode === "contraEntrega" ? "Pedido reservado" : "Venta registrada",
-        paymentMode === "contraEntrega"
-          ? `Quedó contra entrega (${payMethod === "yape" ? "Yape" : "efectivo"}): el stock de las prendas del catálogo se apartó.`
-          : `Quedó como atendida. Pagó con ${payMethod === "yape" ? "Yape" : "efectivo"}.`,
-      )
+      if (order) await container.updateStoreSale(order, payload)
+      else await container.recordStoreSale(payload)
       onClose()
+      await showAdminSuccess(
+        editing ? (reserved ? "Reserva actualizada" : "Reserva cobrada") : reserved ? "Pedido reservado" : "Venta registrada",
+        reserved
+          ? `Quedó contra entrega (${method}): el stock de las prendas del catálogo se apartó.`
+          : `Quedó como atendida. Pagó con ${method}.`,
+      )
     } catch {
-      await showAdminError("No se pudo guardar", "Revisa la conexión e inténtalo de nuevo.")
-    } finally {
       setBusy(false)
+      await showAdminError("No se pudo guardar", "Revisa la conexión e inténtalo de nuevo.")
     }
   }
 
@@ -155,8 +180,10 @@ export function AdminStoreSaleForm({ onClose }: { onClose: () => void }) {
         <header>
           <div>
             <p className="admin-kicker">Caja · tienda física</p>
-            <h2 id="admin-sale-title">Nueva venta</h2>
-            <p className="admin-sale__lead">Elige prendas, revisa el pedido y cobra.</p>
+            <h2 id="admin-sale-title">{editing ? "Editar reserva" : "Nueva venta"}</h2>
+            <p className="admin-sale__lead">
+              {editing ? "Cambia prendas, adelanto o cobra el saldo." : "Elige prendas, revisa el pedido y cobra."}
+            </p>
           </div>
           <button type="button" className="admin-sale__close" onClick={onClose} aria-label="Cerrar">
             ×
@@ -422,12 +449,13 @@ export function AdminStoreSaleForm({ onClose }: { onClose: () => void }) {
                   <input value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Opcional" />
                 </label>
                 <label>
-                  Correo
+                  Número
                   <input
-                    type="email"
-                    value={customerEmail}
-                    onChange={(event) => setCustomerEmail(event.target.value)}
-                    placeholder="Opcional"
+                    type="tel"
+                    inputMode="tel"
+                    value={customerPhone}
+                    onChange={(event) => setCustomerPhone(event.target.value)}
+                    placeholder="9XXXXXXXX"
                   />
                 </label>
                 <label>
@@ -474,7 +502,9 @@ export function AdminStoreSaleForm({ onClose }: { onClose: () => void }) {
                 {busy
                   ? "Guardando…"
                   : paymentMode === "contraEntrega"
-                    ? "Reservar"
+                    ? editing
+                      ? "Guardar"
+                      : "Reservar"
                     : "Cobrar"}
               </button>
             </footer>
