@@ -1,3 +1,5 @@
+import { BarcodeFormat, BrowserMultiFormatReader } from "@zxing/browser"
+import { DecodeHintType } from "@zxing/library"
 import { useEffect, useRef, useState } from "react"
 
 type DetectedBarcode = { rawValue: string }
@@ -16,6 +18,23 @@ function createDetector(): BarcodeDetectorLike | null {
   })
 }
 
+function createZxingReader() {
+  const hints = new Map<DecodeHintType, unknown>()
+  hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+    BarcodeFormat.EAN_13,
+    BarcodeFormat.EAN_8,
+    BarcodeFormat.UPC_A,
+    BarcodeFormat.UPC_E,
+    BarcodeFormat.CODE_128,
+    BarcodeFormat.CODE_39,
+    BarcodeFormat.ITF,
+    BarcodeFormat.CODABAR,
+    BarcodeFormat.QR_CODE,
+  ])
+  hints.set(DecodeHintType.TRY_HARDER, true)
+  return new BrowserMultiFormatReader(hints)
+}
+
 export function AdminBarcodeScan({
   onClose,
   onDetect,
@@ -31,16 +50,58 @@ export function AdminBarcodeScan({
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
+    video.setAttribute("playsinline", "true")
     const detector = createDetector()
     let stream: MediaStream | null = null
     let raf = 0
     let stopped = false
+    let stopZxing: (() => void) | null = null
+
+    function finish(value: string) {
+      if (stopped) return
+      stopped = true
+      navigator.vibrate?.(40)
+      onDetectRef.current(value)
+    }
+
+    async function scanWithDetector(active: BarcodeDetectorLike) {
+      const tick = async () => {
+        if (stopped) return
+        if (video.readyState >= 2) {
+          try {
+            const codes = await active.detect(video)
+            const value = codes[0]?.rawValue?.trim()
+            if (value) {
+              finish(value)
+              return
+            }
+          } catch {
+            /* el frame aún no se puede leer */
+          }
+        }
+        raf = window.requestAnimationFrame(() => {
+          void tick()
+        })
+      }
+      raf = window.requestAnimationFrame(() => {
+        void tick()
+      })
+    }
+
+    async function scanWithZxing(activeStream: MediaStream) {
+      const reader = createZxingReader()
+      const controls = await reader.decodeFromStream(activeStream, video, (result) => {
+        const value = result?.getText().trim()
+        if (!value) return
+        controls.stop()
+        finish(value)
+      })
+      stopZxing = () => {
+        controls.stop()
+      }
+    }
 
     async function start() {
-      if (!detector) {
-        setMessage("Este navegador no lee códigos de barras con la cámara. Usa Chrome o Edge, o escribe el código.")
-        return
-      }
       if (!navigator.mediaDevices?.getUserMedia) {
         setMessage("Este dispositivo no permite usar la cámara.")
         return
@@ -61,30 +122,8 @@ export function AdminBarcodeScan({
         video.srcObject = stream
         await video.play()
         setMessage("Apunta el código de barras al recuadro.")
-
-        const tick = async () => {
-          if (stopped) return
-          if (video.readyState >= 2) {
-            try {
-              const codes = await detector.detect(video)
-              const value = codes[0]?.rawValue?.trim()
-              if (value) {
-                stopped = true
-                navigator.vibrate?.(40)
-                onDetectRef.current(value)
-                return
-              }
-            } catch {
-              /* el frame aún no se puede leer */
-            }
-          }
-          raf = window.requestAnimationFrame(() => {
-            void tick()
-          })
-        }
-        raf = window.requestAnimationFrame(() => {
-          void tick()
-        })
+        if (detector) await scanWithDetector(detector)
+        else await scanWithZxing(stream)
       } catch {
         setMessage("No se pudo abrir la cámara. Permite el acceso e inténtalo de nuevo.")
       }
@@ -94,6 +133,7 @@ export function AdminBarcodeScan({
     return () => {
       stopped = true
       window.cancelAnimationFrame(raf)
+      stopZxing?.()
       const active = video.srcObject
       if (active instanceof MediaStream) {
         active.getTracks().forEach((track) => track.stop())
