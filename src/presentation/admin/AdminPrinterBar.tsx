@@ -53,10 +53,10 @@ export function AdminPrinterBar() {
             ? status.link === "bluetooth"
               ? "Bluetooth listo para imprimir"
               : status.link === "android"
-                ? "Al imprimir se envía a RawBT (POS58 emparejada, PIN 0000)"
+                ? "Al imprimir se manda a RawBT. En la app elige la POS58 y deja que imprima, no el visor PRN."
                 : "USB/COM listo para imprimir"
             : android
-              ? "En tablet o celular usa Chrome. Empareja la POS58 (PIN 0000). Si Chrome no la ve, instala RawBT."
+              ? "Empareja la POS58 (PIN 0000), instala RawBT y pulsa POS58 Android. Si abre un visor, elige la impresora."
               : canUseUsbPrinter()
                 ? "Pulsa USB/COM y elige el cable o el puerto COM de la POS58. En Windows Chrome no usa Bluetooth clásico."
                 : "Al imprimir se abre el selector. PIN de la POS58: 0000."}

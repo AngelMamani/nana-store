@@ -257,15 +257,18 @@ function concat(chunks: Uint8Array[]) {
   return bytes
 }
 
-export async function encodeReceipt(ticket: ReceiptTicket) {
+export async function encodeReceipt(ticket: ReceiptTicket, options?: { includeLogo?: boolean }) {
+  const includeLogo = options?.includeLogo !== false
   const chunks: Uint8Array[] = [
     new Uint8Array([0x1b, 0x40]),
     new Uint8Array([0x1b, 0x74, 0x02]),
     new Uint8Array([0x1b, 0x61, 0x01]),
   ]
-  if (ticket.storeLogo) {
+  if (includeLogo && ticket.storeLogo) {
     const logo = await encodeLogo(ticket.storeLogo)
     if (logo) chunks.push(logo)
+  } else {
+    chunks.push(encodeLine("NaNa"))
   }
   chunks.push(encodeLine("BOLETA SIMPLE"))
   chunks.push(new Uint8Array([0x1b, 0x61, 0x00]))
@@ -418,30 +421,10 @@ function bytesToBase64(bytes: Uint8Array) {
   return btoa(binary)
 }
 
-async function printWithRawBt(bytes: Uint8Array) {
+function printWithRawBt(bytes: Uint8Array) {
   const payload = bytesToBase64(bytes)
-  const copy = new Uint8Array(bytes.byteLength)
-  copy.set(bytes)
-  const file = new File([copy.buffer], "boleta.prn", { type: "application/octet-stream" })
-  const share = navigator as Navigator & {
-    canShare?: (data: { files?: File[] }) => boolean
-    share?: (data: { files?: File[]; title?: string }) => Promise<void>
-  }
-  if (payload.length > 6500 && share.share && (!share.canShare || share.canShare({ files: [file] }))) {
-    try {
-      await share.share({ files: [file], title: "Boleta POS58" })
-      return
-    } catch {
-      /* el usuario canceló compartir; se intenta RawBT */
-    }
-  }
   const href = `intent:base64,${payload}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;S.browser_fallback_url=${encodeURIComponent(RAWBT_STORE)};end`
-  const anchor = document.createElement("a")
-  anchor.href = href
-  anchor.rel = "noreferrer"
-  document.body.appendChild(anchor)
-  anchor.click()
-  anchor.remove()
+  window.location.assign(href)
 }
 
 function isUserCancel(error: unknown) {
@@ -584,7 +567,7 @@ export async function disconnectPrinter() {
 
 export async function printReceipt(ticket: ReceiptTicket) {
   await ensurePrinterConnected()
-  const bytes = await encodeReceipt(ticket)
+  const bytes = await encodeReceipt(ticket, { includeLogo: status.link !== "android" })
   if (status.link === "bluetooth" && writeBle) {
     await writeChunks(bytes, writeBle, 20)
     return
