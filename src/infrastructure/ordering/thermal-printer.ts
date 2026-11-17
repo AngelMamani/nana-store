@@ -395,13 +395,19 @@ export function subscribePrinter(listener: () => void) {
 }
 
 export function isAndroidClient() {
-  return /Android/i.test(navigator.userAgent)
+  if (/Android/i.test(navigator.userAgent)) return true
+  const hints = (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData
+  return Boolean(hints?.platform && /Android/i.test(hints.platform))
 }
 
 export function isIosClient() {
   const ua = navigator.userAgent
   if (/iPhone|iPad|iPod/i.test(ua)) return true
   return navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1
+}
+
+export function isTouchClient() {
+  return navigator.maxTouchPoints > 1
 }
 
 export function canUseBluetoothPrinter() {
@@ -607,11 +613,6 @@ async function printSystemImage(ticket: ReceiptTicket) {
   printImageDocument(dataUrl)
 }
 
-function isUserCancel(error: unknown) {
-  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase()
-  return message.includes("cancel") || message.includes("choos") || message.includes("not found")
-}
-
 export async function reconnectSavedPrinter() {
   if (status.connected) return true
   const serial = (navigator as SerialNavigator).serial
@@ -652,11 +653,12 @@ export async function connectBluetoothPrinter() {
         : "Este navegador no permite Bluetooth. En Windows usa USB/COM.",
     )
   }
-  if (!isAndroidClient() && !(await bluetoothPrinterAvailable())) {
+  const touch = isTouchClient()
+  if (!isAndroidClient() && !touch && !(await bluetoothPrinterAvailable())) {
     throw new Error("Bluetooth está bloqueado en este navegador. En Windows usa USB/COM: la POS58 emparejada aparece como puerto COM.")
   }
   let device: BluetoothDeviceLike
-  if (isAndroidClient()) {
+  if (isAndroidClient() || touch) {
     try {
       device = await api.requestDevice({
         acceptAllDevices: true,
@@ -695,39 +697,50 @@ export async function connectUsbPrinter() {
   await openSerialPort(port, "POS58 USB / COM")
 }
 
+async function hasGrantedSerialPort() {
+  const serial = (navigator as SerialNavigator).serial
+  if (!serial?.getPorts) return false
+  try {
+    const ports = await serial.getPorts()
+    return ports.length > 0
+  } catch {
+    return false
+  }
+}
+
 export async function ensurePrinterConnected() {
   if (status.connected) return
-  if (isAndroidClient() && canUseBluetoothPrinter()) {
+  const wantBluetooth = canUseBluetoothPrinter() && (isAndroidClient() || isTouchClient())
+  if (wantBluetooth) {
     await connectBluetoothPrinter()
     return
   }
   if (await reconnectSavedPrinter()) return
-  const usbOk = canUseUsbPrinter()
-  const btOk = await bluetoothPrinterAvailable()
-  if (usbOk) {
-    try {
-      await connectUsbPrinter()
-      return
-    } catch (error) {
-      if (isUserCancel(error) || !btOk) throw error
-    }
+  if (await hasGrantedSerialPort()) {
+    if (await reconnectSavedPrinter()) return
   }
-  if (btOk) {
+  if (canUseBluetoothPrinter()) {
     try {
       await connectBluetoothPrinter()
       return
     } catch (error) {
-      if (isBluetoothBlockedError(error) && usbOk) {
-        await connectUsbPrinter()
-        return
+      if (isBluetoothBlockedError(error) && (await hasGrantedSerialPort())) {
+        if (await reconnectSavedPrinter()) return
       }
       if (isBluetoothBlockedError(error)) {
-        throw new Error("Bluetooth está bloqueado. En Windows vincula la POS58 y elige su puerto COM (USB/COM).")
+        throw new Error(
+          "Esta tablet abrió USB/COM y no hay ningún puerto. Pulsa Bluetooth y elige la POS58, o enchufa el cable USB y luego USB/COM. Si no lista Bluetooth, cobra desde el celular con Chrome.",
+        )
       }
       throw error
     }
   }
-  throw new Error("Usa Chrome o Edge. En Windows imprime por USB o por el COM de la POS58, no por Bluetooth de Chrome.")
+  if (canUseUsbPrinter()) {
+    throw new Error(
+      "No hay impresora USB conectada. Enchufa la POS58 por cable y pulsa USB/COM, o usa el celular Android con Chrome y Bluetooth.",
+    )
+  }
+  throw new Error("Usa Chrome. En celular o tablet elige la POS58 por Bluetooth; en el PC enchufa USB/COM.")
 }
 
 export async function disconnectPrinter() {

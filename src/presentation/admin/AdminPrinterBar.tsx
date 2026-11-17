@@ -8,6 +8,7 @@ import {
   getPrinterStatus,
   isAndroidClient,
   isIosClient,
+  isTouchClient,
   reconnectSavedPrinter,
   subscribePrinter,
 } from "../../infrastructure/ordering/thermal-printer.ts"
@@ -18,6 +19,7 @@ export function AdminPrinterBar() {
   const [busy, setBusy] = useState(false)
   const android = isAndroidClient()
   const ios = isIosClient()
+  const touch = isTouchClient()
   const status = getPrinterStatus()
   const showBluetooth = canUseBluetoothPrinter()
 
@@ -53,24 +55,14 @@ export function AdminPrinterBar() {
               : "USB/COM listo para imprimir"
             : ios
               ? "En iPhone o iPad Safari no puede hablar Bluetooth con la POS58. Al imprimir se abre Compartir o el menú de impresión."
-              : android
-                ? "En tablet o celular: Chrome, pulsa Bluetooth y elige la POS58 en ese mismo toque."
+              : android || touch
+                ? "Pulsa Bluetooth y elige la POS58. Si sale “puerto en serie”, cancela: eso es USB, no Bluetooth. USB/COM solo con el cable enchufado."
                 : canUseUsbPrinter()
-                  ? "Pulsa USB/COM y elige el cable o el puerto COM de la POS58. En Windows Chrome no usa Bluetooth clásico."
+                  ? "Pulsa USB/COM solo si el cable está enchufado. Si no, Bluetooth."
                   : "Al imprimir se abre el selector. PIN de la POS58: 0000."}
         </em>
       </div>
       <div className="admin-printer__actions">
-        {canUseUsbPrinter() ? (
-          <button
-            type="button"
-            className="btn btn--outline"
-            disabled={busy}
-            onClick={() => void run(connectUsbPrinter, "Quedó vinculada por USB/COM.")}
-          >
-            USB / COM
-          </button>
-        ) : null}
         {showBluetooth ? (
           <button
             type="button"
@@ -79,6 +71,16 @@ export function AdminPrinterBar() {
             onClick={() => void run(connectBluetoothPrinter, "Quedó vinculada por Bluetooth.")}
           >
             Bluetooth
+          </button>
+        ) : null}
+        {canUseUsbPrinter() ? (
+          <button
+            type="button"
+            className="btn btn--outline"
+            disabled={busy}
+            onClick={() => void run(connectUsbPrinter, "Quedó vinculada por USB/COM.")}
+          >
+            USB / COM
           </button>
         ) : null}
         {status.connected ? (
