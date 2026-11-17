@@ -33,6 +33,12 @@ function authCode(error: unknown) {
   return typeof error === "object" && error && "code" in error ? String((error as { code?: string }).code) : ""
 }
 
+function isEmbeddedWebView() {
+  if (typeof navigator === "undefined") return false
+  const ua = navigator.userAgent
+  return /NaNaAdmin/i.test(ua) || /; wv\)/.test(ua) || /WebView/i.test(ua)
+}
+
 async function syncUserDocument(user: User, role: UserRole) {
   const userDocRef = doc(firebaseDb, "users", user.uid)
   const userSnap = await getDoc(userDocRef)
@@ -129,6 +135,10 @@ export class FirebaseAuthService {
 
   async loginWithGoogle(): Promise<AuthResult<Customer>> {
     try {
+      if (isEmbeddedWebView()) {
+        await signInWithRedirect(firebaseAuth, googleAuthProvider)
+        return { ok: false, error: { type: "redirect-pending" } }
+      }
       const result = await signInWithPopup(firebaseAuth, googleAuthProvider)
       const customer = await this.#finishGoogleUser(result.user)
       return { ok: true, value: customer }

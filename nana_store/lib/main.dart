@@ -50,6 +50,9 @@ class _AdminWebScreenState extends State<AdminWebScreen> {
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0xFFFFF7FB))
+      ..setUserAgent(
+        'Mozilla/5.0 (Linux; Android 14; Tablet) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 NaNaAdmin/1.0',
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
           onProgress: (value) => setState(() => _progress = value),
@@ -82,15 +85,26 @@ class _AdminWebScreenState extends State<AdminWebScreen> {
       AndroidWebViewController.enableDebugging(false);
       platform
         ..setMediaPlaybackRequiresUserGesture(false)
+        ..setGeolocationEnabled(true)
         ..setOnPlatformPermissionRequest((request) {
           request.grant();
-        });
+        })
+        ..setGeolocationPermissionsPromptCallbacks(
+          onShowPrompt: (_) async =>
+              const GeolocationPermissionsResponse(allow: true, retain: true),
+        );
+      final cookies = WebViewCookieManager();
+      if (cookies.platform is AndroidWebViewCookieManager) {
+        (cookies.platform as AndroidWebViewCookieManager)
+            .setAcceptThirdPartyCookies(platform, true);
+      }
     }
   }
 
   Future<void> _askPermissions() async {
     await [
       Permission.camera,
+      Permission.microphone,
       Permission.locationWhenInUse,
       Permission.bluetooth,
       Permission.bluetoothScan,

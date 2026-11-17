@@ -28,6 +28,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>NaNa Admin usa la cámara para escanear códigos de barras.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>NaNa Admin pide el micrófono porque la cámara del WebView lo exige al escanear.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>NaNa Admin usa la ubicación para encontrar la impresora Bluetooth.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
