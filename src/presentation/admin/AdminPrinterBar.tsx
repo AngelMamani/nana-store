@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react"
 import {
   bluetoothPrinterAvailable,
+  canUseBluetoothPrinter,
   canUseUsbPrinter,
+  connectAndroidPrinter,
   connectBluetoothPrinter,
   connectUsbPrinter,
   disconnectPrinter,
   getPrinterStatus,
+  isAndroidClient,
   reconnectSavedPrinter,
   subscribePrinter,
 } from "../../infrastructure/ordering/thermal-printer.ts"
@@ -15,7 +18,9 @@ export function AdminPrinterBar() {
   const [, setTick] = useState(0)
   const [busy, setBusy] = useState(false)
   const [bluetoothOk, setBluetoothOk] = useState(false)
+  const android = isAndroidClient()
   const status = getPrinterStatus()
+  const showBluetooth = bluetoothOk || (android && canUseBluetoothPrinter())
 
   useEffect(() => {
     const stop = subscribePrinter(() => setTick((value) => value + 1))
@@ -47,10 +52,14 @@ export function AdminPrinterBar() {
           {status.connected
             ? status.link === "bluetooth"
               ? "Bluetooth listo para imprimir"
-              : "USB/COM listo para imprimir"
-            : canUseUsbPrinter()
-              ? "Pulsa USB/COM y elige el cable o el puerto COM de la POS58. En Windows Chrome no usa Bluetooth clásico."
-              : "Al imprimir se abre el selector. PIN de la POS58: 0000."}
+              : status.link === "android"
+                ? "Al imprimir se envía a RawBT (POS58 emparejada, PIN 0000)"
+                : "USB/COM listo para imprimir"
+            : android
+              ? "En tablet o celular usa Chrome. Empareja la POS58 (PIN 0000). Si Chrome no la ve, instala RawBT."
+              : canUseUsbPrinter()
+                ? "Pulsa USB/COM y elige el cable o el puerto COM de la POS58. En Windows Chrome no usa Bluetooth clásico."
+                : "Al imprimir se abre el selector. PIN de la POS58: 0000."}
         </em>
       </div>
       <div className="admin-printer__actions">
@@ -64,7 +73,7 @@ export function AdminPrinterBar() {
             USB / COM
           </button>
         ) : null}
-        {bluetoothOk ? (
+        {showBluetooth ? (
           <button
             type="button"
             className="btn btn--outline"
@@ -73,6 +82,26 @@ export function AdminPrinterBar() {
           >
             Bluetooth
           </button>
+        ) : null}
+        {android ? (
+          <button
+            type="button"
+            className="btn btn--outline"
+            disabled={busy}
+            onClick={() => void run(async () => connectAndroidPrinter(), "Listo: al imprimir se abre RawBT.")}
+          >
+            POS58 Android
+          </button>
+        ) : null}
+        {android ? (
+          <a
+            className="btn btn--outline"
+            href="https://play.google.com/store/apps/details?id=ru.a402d.rawbtprinter"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Instalar RawBT
+          </a>
         ) : null}
         {status.connected ? (
           <button type="button" className="btn btn--outline" disabled={busy} onClick={() => void disconnectPrinter()}>

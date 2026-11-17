@@ -1,6 +1,6 @@
 import { receiptBodyLines, type ReceiptTicket } from "../../domain/ordering/receipt.ts"
 
-export type PrinterLink = "none" | "bluetooth" | "usb"
+export type PrinterLink = "none" | "bluetooth" | "usb" | "android"
 
 export type PrinterStatus = {
   link: PrinterLink
@@ -8,20 +8,23 @@ export type PrinterStatus = {
   connected: boolean
 }
 
+type BleCharacteristic = {
+  properties: { write?: boolean; writeWithoutResponse?: boolean }
+  writeValue: (data: Uint8Array) => Promise<void>
+  writeValueWithoutResponse?: (data: Uint8Array) => Promise<void>
+}
+
+type BleService = {
+  getCharacteristics: () => Promise<BleCharacteristic[]>
+}
+
 type BluetoothDeviceLike = {
   name?: string
   gatt?: {
     connected: boolean
     connect: () => Promise<{
-      getPrimaryService: (uuid: string) => Promise<{
-        getCharacteristics: () => Promise<
-          {
-            properties: { write?: boolean; writeWithoutResponse?: boolean }
-            writeValue: (data: Uint8Array) => Promise<void>
-              writeValueWithoutResponse?: (data: Uint8Array) => Promise<void>
-          }[]
-        >
-      }>
+      getPrimaryService: (uuid: string) => Promise<BleService>
+      getPrimaryServices?: () => Promise<BleService[]>
     }>
     disconnect: () => void
   }
@@ -61,10 +64,25 @@ const BLE_SERVICES = [
   "000018f0-0000-1000-8000-00805f9b34fb",
   "0000ff00-0000-1000-8000-00805f9b34fb",
   "0000ffe0-0000-1000-8000-00805f9b34fb",
+  "0000fff0-0000-1000-8000-00805f9b34fb",
+  "0000ffb0-0000-1000-8000-00805f9b34fb",
   "e7810a71-73ae-499d-8c15-faa9aef0c3f2",
   "49535343-fe7d-4ae5-8fa9-9fafd205e455",
   "0000ae30-0000-1000-8000-00805f9b34fb",
 ]
+
+const BLE_NAME_PREFIXES = [
+  { namePrefix: "POS" },
+  { namePrefix: "Printer" },
+  { namePrefix: "MTP" },
+  { namePrefix: "RPP" },
+  { namePrefix: "BT" },
+  { namePrefix: "GP" },
+  { namePrefix: "Thermal" },
+  { namePrefix: "BlueTooth" },
+]
+
+const RAWBT_STORE = "https://play.google.com/store/apps/details?id=ru.a402d.rawbtprinter"
 
 const PC850: Record<string, number> = {
   Á: 0xb5,
@@ -282,6 +300,10 @@ export function subscribePrinter(listener: () => void) {
   }
 }
 
+export function isAndroidClient() {
+  return /Android/i.test(navigator.userAgent)
+}
+
 export function canUseBluetoothPrinter() {
   return Boolean((navigator as BluetoothNavigator).bluetooth)
 }
@@ -324,36 +346,100 @@ async function openSerialPort(port: SerialPortLike, name: string) {
   setStatus({ link: "usb", name, connected: true })
 }
 
+function writerFromCharacteristic(characteristic: BleCharacteristic) {
+  return async (chunk: Uint8Array) => {
+    if (characteristic.properties.writeWithoutResponse && characteristic.writeValueWithoutResponse) {
+      await characteristic.writeValueWithoutResponse(chunk)
+      return
+    }
+    await characteristic.writeValue(chunk)
+  }
+}
+
+async function writerFromServices(services: BleService[]) {
+  for (const service of services) {
+    try {
+      const characteristics = await service.getCharacteristics()
+      const characteristic = characteristics.find(
+        (item) => item.properties.writeWithoutResponse || item.properties.write,
+      )
+      if (characteristic) return writerFromCharacteristic(characteristic)
+    } catch {
+      /* servicio sin escritura */
+    }
+  }
+  return null
+}
+
 async function attachBluetoothDevice(device: BluetoothDeviceLike) {
   if (!device.gatt) throw new Error("La impresora no expone Bluetooth de baja energía.")
   const server = await device.gatt.connect()
   let writer: ((chunk: Uint8Array) => Promise<void>) | null = null
-  for (const uuid of BLE_SERVICES) {
+  if (server.getPrimaryServices) {
     try {
-      const service = await server.getPrimaryService(uuid)
-      const characteristics = await service.getCharacteristics()
-      const characteristic = characteristics.find(
-        (item: { properties: { write?: boolean; writeWithoutResponse?: boolean } }) =>
-          item.properties.writeWithoutResponse || item.properties.write,
-      )
-      if (!characteristic) continue
-      writer = async (chunk) => {
-        if (characteristic.properties.writeWithoutResponse && characteristic.writeValueWithoutResponse) {
-          await characteristic.writeValueWithoutResponse(chunk)
-          return
-        }
-        await characteristic.writeValue(chunk)
-      }
-      break
+      writer = await writerFromServices(await server.getPrimaryServices())
     } catch {
-      /* este UUID no existe en esta impresora */
+      /* Chrome exige optionalServices para listar */
     }
   }
-  if (!writer) throw new Error("No se encontró un canal de impresión. Prueba USB/COM.")
+  if (!writer) {
+    const found: BleService[] = []
+    for (const uuid of BLE_SERVICES) {
+      try {
+        found.push(await server.getPrimaryService(uuid))
+      } catch {
+        /* este UUID no existe en esta impresora */
+      }
+    }
+    writer = await writerFromServices(found)
+  }
+  if (!writer) {
+    throw new Error(
+      isAndroidClient()
+        ? "Chrome no encontró un canal BLE. Empareja la POS58 e instala RawBT para imprimir por Bluetooth clásico."
+        : "No se encontró un canal de impresión. Prueba USB/COM.",
+    )
+  }
   bluetoothDevice = device
   writeBle = writer
   device.addEventListener("gattserverdisconnected", onBluetoothGone)
   setStatus({ link: "bluetooth", name: device.name?.trim() || "POS58", connected: true })
+}
+
+function useRawBtLink() {
+  setStatus({ link: "android", name: "POS58 Android", connected: true })
+}
+
+function bytesToBase64(bytes: Uint8Array) {
+  let binary = ""
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000))
+  }
+  return btoa(binary)
+}
+
+async function printWithRawBt(bytes: Uint8Array) {
+  const payload = bytesToBase64(bytes)
+  const file = new File([bytes], "boleta.prn", { type: "application/octet-stream" })
+  const share = navigator as Navigator & {
+    canShare?: (data: { files?: File[] }) => boolean
+    share?: (data: { files?: File[]; title?: string }) => Promise<void>
+  }
+  if (payload.length > 6500 && share.share && (!share.canShare || share.canShare({ files: [file] }))) {
+    try {
+      await share.share({ files: [file], title: "Boleta POS58" })
+      return
+    } catch {
+      /* el usuario canceló compartir; se intenta RawBT */
+    }
+  }
+  const href = `intent:base64,${payload}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;S.browser_fallback_url=${encodeURIComponent(RAWBT_STORE)};end`
+  const anchor = document.createElement("a")
+  anchor.href = href
+  anchor.rel = "noreferrer"
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
 }
 
 function isUserCancel(error: unknown) {
@@ -394,22 +480,41 @@ export async function reconnectSavedPrinter() {
 
 export async function connectBluetoothPrinter() {
   const api = (navigator as BluetoothNavigator).bluetooth
-  if (!api || !(await bluetoothPrinterAvailable())) {
+  if (!api) {
+    throw new Error(
+      isAndroidClient()
+        ? "Usa Chrome en el celular o tablet para Bluetooth."
+        : "Este navegador no permite Bluetooth. En Windows usa USB/COM.",
+    )
+  }
+  const available = await bluetoothPrinterAvailable()
+  if (!available && !isAndroidClient()) {
     throw new Error("Bluetooth está bloqueado en este navegador. En Windows usa USB/COM: la POS58 emparejada aparece como puerto COM.")
   }
   let device: BluetoothDeviceLike
   try {
     device = await api.requestDevice({
-      filters: [{ namePrefix: "POS" }, { namePrefix: "Printer" }, { namePrefix: "MTP" }, { namePrefix: "RPP" }],
+      filters: BLE_NAME_PREFIXES,
       optionalServices: BLE_SERVICES,
     })
-  } catch {
+  } catch (error) {
+    if (isBluetoothBlockedError(error)) {
+      throw new Error(
+        isAndroidClient()
+          ? "Bluetooth está bloqueado. Usa Chrome, enciende Bluetooth y recarga Pedidos."
+          : "Bluetooth está bloqueado en este navegador. En Windows usa USB/COM.",
+      )
+    }
     device = await api.requestDevice({
       acceptAllDevices: true,
       optionalServices: BLE_SERVICES,
     })
   }
   await attachBluetoothDevice(device)
+}
+
+export function connectAndroidPrinter() {
+  useRawBtLink()
 }
 
 export async function connectUsbPrinter() {
@@ -422,6 +527,27 @@ export async function connectUsbPrinter() {
 export async function ensurePrinterConnected() {
   if (status.connected) return
   if (await reconnectSavedPrinter()) return
+  if (isAndroidClient()) {
+    if (canUseBluetoothPrinter()) {
+      try {
+        await connectBluetoothPrinter()
+        return
+      } catch (error) {
+        if (isUserCancel(error) || isBluetoothBlockedError(error)) {
+          useRawBtLink()
+          return
+        }
+        const message = error instanceof Error ? error.message : ""
+        if (message.includes("RawBT") || message.includes("canal BLE")) {
+          useRawBtLink()
+          return
+        }
+        throw error
+      }
+    }
+    useRawBtLink()
+    return
+  }
   const usbOk = canUseUsbPrinter()
   const btOk = await bluetoothPrinterAvailable()
   if (usbOk) {
@@ -463,6 +589,10 @@ export async function printReceipt(ticket: ReceiptTicket) {
   }
   if (status.link === "usb" && serialWriter) {
     await writeChunks(bytes, (chunk) => serialWriter!.write(chunk), 128)
+    return
+  }
+  if (status.link === "android") {
+    await printWithRawBt(bytes)
     return
   }
   throw new Error("Se perdió la conexión con la impresora.")
