@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react"
 import {
-  bluetoothPrinterAvailable,
   canUseBluetoothPrinter,
   canUseUsbPrinter,
   connectBluetoothPrinter,
@@ -17,15 +16,13 @@ import { showAdminError, showAdminSuccess } from "./admin-alerts.ts"
 export function AdminPrinterBar() {
   const [, setTick] = useState(0)
   const [busy, setBusy] = useState(false)
-  const [bluetoothOk, setBluetoothOk] = useState(false)
   const android = isAndroidClient()
   const ios = isIosClient()
   const status = getPrinterStatus()
-  const showBluetooth = canUseBluetoothPrinter() && (bluetoothOk || android)
+  const showBluetooth = canUseBluetoothPrinter()
 
   useEffect(() => {
     const stop = subscribePrinter(() => setTick((value) => value + 1))
-    void bluetoothPrinterAvailable().then(setBluetoothOk)
     void reconnectSavedPrinter()
     return stop
   }, [])
@@ -57,7 +54,7 @@ export function AdminPrinterBar() {
             : ios
               ? "En iPhone o iPad Safari no puede hablar Bluetooth con la POS58. Al imprimir se abre Compartir o el menú de impresión."
               : android
-                ? "Usa Chrome, enciende Bluetooth y al imprimir elige la POS58. Igual que en el celular, sin instalar nada."
+                ? "En tablet o celular: Chrome, pulsa Bluetooth y elige la POS58 en ese mismo toque."
                 : canUseUsbPrinter()
                   ? "Pulsa USB/COM y elige el cable o el puerto COM de la POS58. En Windows Chrome no usa Bluetooth clásico."
                   : "Al imprimir se abre el selector. PIN de la POS58: 0000."}

@@ -357,24 +357,21 @@ export async function encodeReceipt(ticket: ReceiptTicket) {
     const logo = await encodeLogo(ticket.storeLogo)
     if (logo) chunks.push(logo)
   }
-  chunks.push(new Uint8Array([0x1d, 0x21, 0x11]))
-  chunks.push(encodeLine("BOLETA"))
-  chunks.push(encodeLine("SIMPLE"))
   chunks.push(new Uint8Array([0x1d, 0x21, 0x10]))
+  chunks.push(encodeLine("BOLETA SIMPLE"))
+  chunks.push(new Uint8Array([0x1d, 0x21, 0x00]))
   chunks.push(new Uint8Array([0x1b, 0x61, 0x00]))
   for (const line of receiptBodyLines(ticket)) {
     if (line.startsWith("TOTAL")) {
       chunks.push(new Uint8Array([0x1b, 0x45, 0x01]))
-      chunks.push(new Uint8Array([0x1d, 0x21, 0x11]))
-      chunks.push(encodeLine("TOTAL"))
-      chunks.push(encodeLine(line.replace(/^TOTAL\s*/, "")))
       chunks.push(new Uint8Array([0x1d, 0x21, 0x10]))
+      chunks.push(encodeLine(line))
+      chunks.push(new Uint8Array([0x1d, 0x21, 0x00]))
       chunks.push(new Uint8Array([0x1b, 0x45, 0x00]))
       continue
     }
     chunks.push(encodeLine(line))
   }
-  chunks.push(new Uint8Array([0x1d, 0x21, 0x00]))
   chunks.push(new Uint8Array([0x0a, 0x0a]))
   chunks.push(new Uint8Array([0x1d, 0x56, 0x41, 0x10]))
   return concat(chunks)
@@ -511,8 +508,8 @@ async function attachBluetoothDevice(device: BluetoothDeviceLike) {
 
 async function renderReceiptJpeg(ticket: ReceiptTicket) {
   const pad = 8
-  const lineHeight = 36
-  const lines = ["BOLETA SIMPLE", "", ...receiptBodyLines(ticket, 20)]
+  const lineHeight = 26
+  const lines = ["BOLETA SIMPLE", "", ...receiptBodyLines(ticket, 24)]
   let logo: HTMLImageElement | null = null
   let logoW = 0
   let logoH = 0
@@ -543,7 +540,7 @@ async function renderReceiptJpeg(ticket: ReceiptTicket) {
   context.textBaseline = "top"
   for (const line of lines) {
     const title = line === "BOLETA SIMPLE" || line.startsWith("TOTAL") || line.startsWith("Gracias")
-    context.font = `${title ? "bold " : ""}28px monospace`
+    context.font = `${title ? "bold " : ""}22px monospace`
     context.textAlign = title ? "center" : "left"
     const x = title ? PAPER_DOTS / 2 : pad
     context.fillText(line, x, y, PAPER_DOTS - pad * 2)
@@ -655,28 +652,38 @@ export async function connectBluetoothPrinter() {
         : "Este navegador no permite Bluetooth. En Windows usa USB/COM.",
     )
   }
-  const available = await bluetoothPrinterAvailable()
-  if (!available && !isAndroidClient()) {
+  if (!isAndroidClient() && !(await bluetoothPrinterAvailable())) {
     throw new Error("Bluetooth está bloqueado en este navegador. En Windows usa USB/COM: la POS58 emparejada aparece como puerto COM.")
   }
   let device: BluetoothDeviceLike
-  try {
-    device = await api.requestDevice({
-      filters: BLE_NAME_PREFIXES,
-      optionalServices: BLE_SERVICES,
-    })
-  } catch (error) {
-    if (isBluetoothBlockedError(error)) {
-      throw new Error(
-        isAndroidClient()
-          ? "Bluetooth está bloqueado. Usa Chrome, enciende Bluetooth y recarga Pedidos."
-          : "Bluetooth está bloqueado en este navegador. En Windows usa USB/COM.",
-      )
+  if (isAndroidClient()) {
+    try {
+      device = await api.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: BLE_SERVICES,
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase()
+      if (message.includes("gesture") || message.includes("notallowed") || message.includes("not allowed")) {
+        throw new Error("Pulsa Bluetooth o Imprimir otra vez y elige la POS58. En tablet usa Chrome, no el navegador de Samsung.")
+      }
+      throw error
     }
-    device = await api.requestDevice({
-      acceptAllDevices: true,
-      optionalServices: BLE_SERVICES,
-    })
+  } else {
+    try {
+      device = await api.requestDevice({
+        filters: BLE_NAME_PREFIXES,
+        optionalServices: BLE_SERVICES,
+      })
+    } catch (error) {
+      if (isBluetoothBlockedError(error)) {
+        throw new Error("Bluetooth está bloqueado en este navegador. En Windows usa USB/COM.")
+      }
+      device = await api.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: BLE_SERVICES,
+      })
+    }
   }
   await attachBluetoothDevice(device)
 }
@@ -690,11 +697,11 @@ export async function connectUsbPrinter() {
 
 export async function ensurePrinterConnected() {
   if (status.connected) return
-  if (await reconnectSavedPrinter()) return
   if (isAndroidClient() && canUseBluetoothPrinter()) {
     await connectBluetoothPrinter()
     return
   }
+  if (await reconnectSavedPrinter()) return
   const usbOk = canUseUsbPrinter()
   const btOk = await bluetoothPrinterAvailable()
   if (usbOk) {

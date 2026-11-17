@@ -21,7 +21,7 @@ import {
 } from "../../domain/ordering/entities.ts"
 import { buildReceiptTicket } from "../../domain/ordering/receipt.ts"
 import { container } from "../../infrastructure/composition/container.ts"
-import { printReceipt } from "../../infrastructure/ordering/thermal-printer.ts"
+import { ensurePrinterConnected, printReceipt } from "../../infrastructure/ordering/thermal-printer.ts"
 import { useCatalog } from "../catalog/catalog-context.ts"
 import { showAdminError, showAdminSuccess } from "./admin-alerts.ts"
 
@@ -160,6 +160,14 @@ export function AdminStoreSaleForm({
       lines: lines.map(({ key: _key, ...line }) => line),
     }
     try {
+      try {
+        await ensurePrinterConnected()
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "No se vinculó la impresora."
+        if (!message.toLowerCase().includes("cancel") && !message.toLowerCase().includes("not found")) {
+          await showAdminError("Impresora", message)
+        }
+      }
       if (order) await container.updateStoreSale(order, payload)
       else await container.recordStoreSale(payload)
       try {
