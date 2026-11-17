@@ -52,10 +52,8 @@ export function AdminPrinterBar() {
         <em>
           {status.connected
             ? status.link === "bluetooth"
-              ? "Bluetooth listo para imprimir"
-              : status.link === "android"
-                ? "Al imprimir se manda una foto de la boleta (logo grande). RawBT gratis sí imprime fotos; no abras el visor PRN."
-                : "USB/COM listo para imprimir"
+              ? "Bluetooth listo para imprimir. Sin RawBT, sin marca de agua."
+              : "USB/COM listo para imprimir"
             : ios
               ? "En iPhone o iPad Safari no puede hablar Bluetooth con la POS58. Al imprimir se abre Compartir o el menú de impresión."
               : android

@@ -34,7 +34,7 @@ export type ReceiptTicket = {
 
 const WIDTH = 32
 
-function fit(text: string, size = WIDTH) {
+function fit(text: string, size: number) {
   const value = text.replace(/\s+/g, " ").trim()
   if (value.length <= size) return value
   return `${value.slice(0, size - 1)}.`
@@ -44,24 +44,24 @@ function money(amount: number) {
   return formatPen(amount)
 }
 
-function padRow(left: string, right: string) {
-  const gap = WIDTH - left.length - right.length
+function padRow(left: string, right: string, size: number) {
+  const gap = size - left.length - right.length
   if (gap >= 1) return `${left}${" ".repeat(gap)}${right}`
-  return `${fit(left, WIDTH - right.length - 1)} ${right}`
+  return `${fit(left, size - right.length - 1)} ${right}`
 }
 
-function wrap(text: string) {
+function wrap(text: string, size: number) {
   const words = text.split(" ").filter(Boolean)
   const lines: string[] = []
   let current = ""
   for (const word of words) {
     const next = current ? `${current} ${word}` : word
-    if (next.length <= WIDTH) {
+    if (next.length <= size) {
       current = next
       continue
     }
     if (current) lines.push(current)
-    current = word.length <= WIDTH ? word : fit(word)
+    current = word.length <= size ? word : fit(word, size)
   }
   if (current) lines.push(current)
   return lines
@@ -127,37 +127,37 @@ export function receiptFromOrder(store: StoreProfile, order: StoreOrder): Receip
   })
 }
 
-export function receiptBodyLines(ticket: ReceiptTicket) {
-  const rule = "-".repeat(WIDTH)
+export function receiptBodyLines(ticket: ReceiptTicket, columns = WIDTH) {
+  const rule = "-".repeat(columns)
   const lines = [
     rule,
     `Venta: ${formatWhen(ticket.createdAt)}`,
     `Impreso: ${formatWhen(ticket.printedAt)}`,
   ]
-  if (ticket.storeAddress) lines.push(...wrap(ticket.storeAddress))
+  if (ticket.storeAddress) lines.push(...wrap(ticket.storeAddress, columns))
   if (ticket.storePhone) lines.push(`Tel: ${ticket.storePhone}`)
   lines.push(rule)
-  lines.push(fit(`Cliente: ${ticket.customerName}`))
+  lines.push(fit(`Cliente: ${ticket.customerName}`, columns))
   if (ticket.customerPhone) lines.push(`Cel: ${ticket.customerPhone}`)
   if (ticket.reserved) lines.push("Estado: RESERVADO")
   lines.push(rule)
   for (const line of ticket.lines) {
     const qty = `${line.quantity}x `
-    const name = fit(line.name, WIDTH - qty.length)
+    const name = fit(line.name, columns - qty.length)
     lines.push(`${qty}${name}`)
-    if (line.detail) lines.push(`  ${fit(line.detail.replace(/·/g, "-"), WIDTH - 2)}`)
-    lines.push(padRow("", money(line.unitPrice * line.quantity)))
+    if (line.detail) lines.push(`  ${fit(line.detail.replace(/·/g, "-"), columns - 2)}`)
+    lines.push(padRow("", money(line.unitPrice * line.quantity), columns))
   }
   lines.push(rule)
-  lines.push(padRow("TOTAL", money(ticket.total)))
+  lines.push(padRow("TOTAL", money(ticket.total), columns))
   if (ticket.reserved) {
-    lines.push(padRow("Adelanto", money(ticket.advance)))
-    lines.push(padRow("Saldo", money(ticket.balance)))
+    lines.push(padRow("Adelanto", money(ticket.advance), columns))
+    lines.push(padRow("Saldo", money(ticket.balance), columns))
   }
-  lines.push(...wrap(ticket.payLabel))
+  lines.push(...wrap(ticket.payLabel, columns))
   if (ticket.note) {
     lines.push(rule)
-    lines.push(...wrap(`Nota: ${ticket.note}`))
+    lines.push(...wrap(`Nota: ${ticket.note}`, columns))
   }
   lines.push(rule)
   lines.push("Gracias por su compra")

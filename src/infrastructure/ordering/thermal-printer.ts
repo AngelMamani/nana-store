@@ -1,6 +1,6 @@
 import { receiptBodyLines, type ReceiptTicket } from "../../domain/ordering/receipt.ts"
 
-export type PrinterLink = "none" | "bluetooth" | "usb" | "android"
+export type PrinterLink = "none" | "bluetooth" | "usb"
 
 export type PrinterStatus = {
   link: PrinterLink
@@ -81,8 +81,6 @@ const BLE_NAME_PREFIXES = [
   { namePrefix: "Thermal" },
   { namePrefix: "BlueTooth" },
 ]
-
-const RAWBT_STORE = "https://play.google.com/store/apps/details?id=ru.a402d.rawbtprinter"
 
 const PC850: Record<string, number> = {
   Á: 0xb5,
@@ -359,17 +357,24 @@ export async function encodeReceipt(ticket: ReceiptTicket) {
     const logo = await encodeLogo(ticket.storeLogo)
     if (logo) chunks.push(logo)
   }
-  chunks.push(encodeLine("BOLETA SIMPLE"))
+  chunks.push(new Uint8Array([0x1d, 0x21, 0x11]))
+  chunks.push(encodeLine("BOLETA"))
+  chunks.push(encodeLine("SIMPLE"))
+  chunks.push(new Uint8Array([0x1d, 0x21, 0x10]))
   chunks.push(new Uint8Array([0x1b, 0x61, 0x00]))
   for (const line of receiptBodyLines(ticket)) {
     if (line.startsWith("TOTAL")) {
       chunks.push(new Uint8Array([0x1b, 0x45, 0x01]))
-      chunks.push(encodeLine(line))
+      chunks.push(new Uint8Array([0x1d, 0x21, 0x11]))
+      chunks.push(encodeLine("TOTAL"))
+      chunks.push(encodeLine(line.replace(/^TOTAL\s*/, "")))
+      chunks.push(new Uint8Array([0x1d, 0x21, 0x10]))
       chunks.push(new Uint8Array([0x1b, 0x45, 0x00]))
       continue
     }
     chunks.push(encodeLine(line))
   }
+  chunks.push(new Uint8Array([0x1d, 0x21, 0x00]))
   chunks.push(new Uint8Array([0x0a, 0x0a]))
   chunks.push(new Uint8Array([0x1d, 0x56, 0x41, 0x10]))
   return concat(chunks)
@@ -494,7 +499,7 @@ async function attachBluetoothDevice(device: BluetoothDeviceLike) {
   if (!writer) {
     throw new Error(
       isAndroidClient()
-        ? "Chrome no encontró un canal BLE. Empareja la POS58 e instala RawBT para imprimir por Bluetooth clásico."
+        ? "Chrome no encontró un canal BLE. Usa Chrome, enciende Bluetooth y elige la POS58."
         : "No se encontró un canal de impresión. Prueba USB/COM.",
     )
   }
@@ -504,14 +509,10 @@ async function attachBluetoothDevice(device: BluetoothDeviceLike) {
   setStatus({ link: "bluetooth", name: device.name?.trim() || "POS58", connected: true })
 }
 
-function useRawBtLink() {
-  setStatus({ link: "android", name: "POS58 Android", connected: true })
-}
-
 async function renderReceiptJpeg(ticket: ReceiptTicket) {
-  const pad = 10
-  const lineHeight = 22
-  const lines = ["BOLETA SIMPLE", "", ...receiptBodyLines(ticket)]
+  const pad = 8
+  const lineHeight = 36
+  const lines = ["BOLETA SIMPLE", "", ...receiptBodyLines(ticket, 20)]
   let logo: HTMLImageElement | null = null
   let logoW = 0
   let logoH = 0
@@ -542,18 +543,13 @@ async function renderReceiptJpeg(ticket: ReceiptTicket) {
   context.textBaseline = "top"
   for (const line of lines) {
     const title = line === "BOLETA SIMPLE" || line.startsWith("TOTAL") || line.startsWith("Gracias")
-    context.font = `${title ? "bold " : ""}20px monospace`
+    context.font = `${title ? "bold " : ""}28px monospace`
     context.textAlign = title ? "center" : "left"
     const x = title ? PAPER_DOTS / 2 : pad
     context.fillText(line, x, y, PAPER_DOTS - pad * 2)
     y += lineHeight
   }
   return canvas.toDataURL("image/jpeg", 0.78)
-}
-
-function printWithRawBtImage(dataUrl: string) {
-  const href = `intent:${dataUrl}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;S.browser_fallback_url=${encodeURIComponent(RAWBT_STORE)};end`
-  window.location.assign(href)
 }
 
 function printImageDocument(dataUrl: string) {
@@ -685,10 +681,6 @@ export async function connectBluetoothPrinter() {
   await attachBluetoothDevice(device)
 }
 
-export function connectAndroidPrinter() {
-  useRawBtLink()
-}
-
 export async function connectUsbPrinter() {
   const api = (navigator as SerialNavigator).serial
   if (!api) throw new Error("Este navegador no permite USB/COM. Usa Chrome o Edge en el computador.")
@@ -741,10 +733,6 @@ export async function printReceipt(ticket: ReceiptTicket) {
     return
   }
   await ensurePrinterConnected()
-  if (status.link === "android") {
-    printWithRawBtImage(await renderReceiptJpeg(ticket))
-    return
-  }
   const bytes = await encodeReceipt(ticket)
   if (status.link === "bluetooth" && writeBle) {
     await writeChunks(bytes, writeBle, 20)
