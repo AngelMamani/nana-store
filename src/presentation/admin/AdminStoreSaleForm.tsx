@@ -19,7 +19,9 @@ import {
   type PaymentMode,
   type StoreOrder,
 } from "../../domain/ordering/entities.ts"
+import { buildReceiptTicket } from "../../domain/ordering/receipt.ts"
 import { container } from "../../infrastructure/composition/container.ts"
+import { printReceipt } from "../../infrastructure/ordering/thermal-printer.ts"
 import { useCatalog } from "../catalog/catalog-context.ts"
 import { showAdminError, showAdminSuccess } from "./admin-alerts.ts"
 
@@ -160,6 +162,28 @@ export function AdminStoreSaleForm({
     try {
       if (order) await container.updateStoreSale(order, payload)
       else await container.recordStoreSale(payload)
+      try {
+        await printReceipt(
+          buildReceiptTicket(container.getStore(), {
+            createdAt: new Date().toISOString(),
+            customerName,
+            customerPhone,
+            lines: payload.lines,
+            total,
+            advance: payload.advance,
+            balance: reserved ? Math.max(0, total - payload.advance) : 0,
+            paymentMode,
+            payMethod,
+            note,
+            reserved,
+          }),
+        )
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "La venta se guardó, pero no se imprimió."
+        if (!message.toLowerCase().includes("cancel") && !message.toLowerCase().includes("not found")) {
+          await showAdminError("No se imprimió la boleta", message)
+        }
+      }
       onClose()
       await showAdminSuccess(
         editing ? (reserved ? "Reserva actualizada" : "Reserva cobrada") : reserved ? "Pedido reservado" : "Venta registrada",

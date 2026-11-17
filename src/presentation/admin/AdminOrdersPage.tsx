@@ -28,8 +28,11 @@ import {
   startOfLocalDay,
   type OrderPeriodMode,
 } from "../../domain/ordering/period.ts"
+import { receiptFromOrder } from "../../domain/ordering/receipt.ts"
 import { container } from "../../infrastructure/composition/container.ts"
+import { printReceipt } from "../../infrastructure/ordering/thermal-printer.ts"
 import { confirmAdminAction, promptAdminNumber, showAdminError } from "./admin-alerts.ts"
+import { AdminPrinterBar } from "./AdminPrinterBar.tsx"
 import { AdminStoreSaleForm } from "./AdminStoreSaleForm.tsx"
 
 const VIEW_KEY = "nana-admin-orders-view"
@@ -269,6 +272,16 @@ export function AdminOrdersPage() {
     }
   }
 
+  async function printOrder(order: StoreOrder) {
+    try {
+      await printReceipt(receiptFromOrder(store, order))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo imprimir la boleta."
+      if (message.toLowerCase().includes("cancel") || message.toLowerCase().includes("not found")) return
+      await showAdminError("No se imprimió", message)
+    }
+  }
+
   async function removeOrder(order: StoreOrder) {
     const ok = await confirmAdminAction({
       title: "Eliminar pedido",
@@ -311,6 +324,8 @@ export function AdminOrdersPage() {
           Venta en tienda
         </button>
       </section>
+
+      <AdminPrinterBar />
 
       {error && <p className="notice">{error}</p>}
 
@@ -478,6 +493,7 @@ export function AdminOrdersPage() {
                 setSaleOrder(order)
                 setSaleOpen(true)
               }}
+              onPrint={() => void printOrder(order)}
               onRemove={() => void removeOrder(order)}
             />
           ))}
@@ -525,6 +541,16 @@ export function AdminOrdersPage() {
                             >
                               <Glyph name={open ? "up" : "down"} />
                             </button>
+                            {order.status !== "cancelado" ? (
+                              <button
+                                type="button"
+                                title="Imprimir boleta"
+                                disabled={busyId === order.id}
+                                onClick={() => void printOrder(order)}
+                              >
+                                <Glyph name="print" />
+                              </button>
+                            ) : null}
                             {order.status === "reservado" ? (
                               <button
                                 type="button"
@@ -611,6 +637,7 @@ function OrderCard({
   onStatus,
   onAdvance,
   onEdit,
+  onPrint,
   onRemove,
 }: {
   order: StoreOrder
@@ -621,6 +648,7 @@ function OrderCard({
   onStatus: (status: OrderStatus) => void
   onAdvance: () => void
   onEdit: () => void
+  onPrint: () => void
   onRemove: () => void
 }) {
   return (
@@ -642,6 +670,11 @@ function OrderCard({
         <button type="button" title={open ? "Ocultar detalle" : "Ver detalle"} onClick={onToggle}>
           <Glyph name={open ? "up" : "down"} />
         </button>
+        {order.status !== "cancelado" ? (
+          <button type="button" title="Imprimir boleta" disabled={busy} onClick={onPrint}>
+            <Glyph name="print" />
+          </button>
+        ) : null}
         {order.status === "reservado" ? (
           <button type="button" className="admin-order-edit" title="Editar" onClick={onEdit}>
             <Glyph name="edit" />
@@ -877,6 +910,13 @@ function Glyph({ name }: { name: string }) {
       <>
         <path d="M12 20h9" />
         <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+      </>
+    ),
+    print: (
+      <>
+        <path d="M6 9V3h12v6" />
+        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+        <rect x="6" y="14" width="12" height="8" rx="1" />
       </>
     ),
   }
