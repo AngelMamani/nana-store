@@ -53,7 +53,7 @@ export function AdminPrinterBar() {
             ? status.link === "bluetooth"
               ? "Bluetooth listo para imprimir"
               : status.link === "android"
-                ? "Al imprimir se manda a RawBT. En la app elige la POS58 y deja que imprima, no el visor PRN."
+                ? "Al imprimir se manda una foto de la boleta (logo grande). RawBT gratis sí imprime fotos; no abras el visor PRN."
                 : "USB/COM listo para imprimir"
             : android
               ? "Empareja la POS58 (PIN 0000), instala RawBT y pulsa POS58 Android. Si abre un visor, elige la impresora."

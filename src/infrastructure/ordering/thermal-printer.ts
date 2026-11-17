@@ -197,14 +197,21 @@ function loadImage(url: string) {
   })
 }
 
+const PAPER_DOTS = 384
+const LOGO_MAX_HEIGHT = 384
+
+function fitLogo(image: HTMLImageElement) {
+  const scale = Math.min(PAPER_DOTS / Math.max(image.width, 1), LOGO_MAX_HEIGHT / Math.max(image.height, 1))
+  return {
+    drawWidth: Math.max(8, Math.floor(image.width * scale)),
+    drawHeight: Math.max(8, Math.floor(image.height * scale)),
+  }
+}
+
 async function encodeLogo(url: string) {
   try {
     const image = await loadImage(url)
-    const maxWidth = 384
-    const maxHeight = 240
-    const scale = Math.min(maxWidth / Math.max(image.width, 1), maxHeight / Math.max(image.height, 1))
-    const drawWidth = Math.max(8, Math.floor(image.width * scale))
-    const drawHeight = Math.max(8, Math.floor(image.height * scale))
+    const { drawWidth, drawHeight } = fitLogo(image)
     const bytesPerRow = Math.ceil(drawWidth / 8)
     const canvas = document.createElement("canvas")
     canvas.width = bytesPerRow * 8
@@ -257,18 +264,15 @@ function concat(chunks: Uint8Array[]) {
   return bytes
 }
 
-export async function encodeReceipt(ticket: ReceiptTicket, options?: { includeLogo?: boolean }) {
-  const includeLogo = options?.includeLogo !== false
+export async function encodeReceipt(ticket: ReceiptTicket) {
   const chunks: Uint8Array[] = [
     new Uint8Array([0x1b, 0x40]),
     new Uint8Array([0x1b, 0x74, 0x02]),
     new Uint8Array([0x1b, 0x61, 0x01]),
   ]
-  if (includeLogo && ticket.storeLogo) {
+  if (ticket.storeLogo) {
     const logo = await encodeLogo(ticket.storeLogo)
     if (logo) chunks.push(logo)
-  } else {
-    chunks.push(encodeLine("NaNa"))
   }
   chunks.push(encodeLine("BOLETA SIMPLE"))
   chunks.push(new Uint8Array([0x1b, 0x61, 0x00]))
@@ -413,17 +417,50 @@ function useRawBtLink() {
   setStatus({ link: "android", name: "POS58 Android", connected: true })
 }
 
-function bytesToBase64(bytes: Uint8Array) {
-  let binary = ""
-  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
-    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000))
+async function renderReceiptJpeg(ticket: ReceiptTicket) {
+  const pad = 10
+  const lineHeight = 22
+  const lines = ["BOLETA SIMPLE", "", ...receiptBodyLines(ticket)]
+  let logo: HTMLImageElement | null = null
+  let logoW = 0
+  let logoH = 0
+  if (ticket.storeLogo) {
+    try {
+      logo = await loadImage(ticket.storeLogo)
+      const fitted = fitLogo(logo)
+      logoW = fitted.drawWidth
+      logoH = fitted.drawHeight
+    } catch {
+      logo = null
+    }
   }
-  return btoa(binary)
+  const canvas = document.createElement("canvas")
+  canvas.width = PAPER_DOTS
+  canvas.height = pad + logoH + (logo ? 12 : 0) + lines.length * lineHeight + 28
+  const context = canvas.getContext("2d")
+  if (!context) throw new Error("No se pudo armar la boleta.")
+  context.fillStyle = "#ffffff"
+  context.fillRect(0, 0, canvas.width, canvas.height)
+  let y = pad
+  if (logo) {
+    context.drawImage(logo, Math.floor((PAPER_DOTS - logoW) / 2), y, logoW, logoH)
+    y += logoH + 12
+  }
+  context.fillStyle = "#111111"
+  context.textBaseline = "top"
+  for (const line of lines) {
+    const title = line === "BOLETA SIMPLE" || line.startsWith("TOTAL") || line.startsWith("Gracias")
+    context.font = `${title ? "bold " : ""}20px monospace`
+    context.textAlign = title ? "center" : "left"
+    const x = title ? PAPER_DOTS / 2 : pad
+    context.fillText(line, x, y, PAPER_DOTS - pad * 2)
+    y += lineHeight
+  }
+  return canvas.toDataURL("image/jpeg", 0.78)
 }
 
-function printWithRawBt(bytes: Uint8Array) {
-  const payload = bytesToBase64(bytes)
-  const href = `intent:base64,${payload}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;S.browser_fallback_url=${encodeURIComponent(RAWBT_STORE)};end`
+function printWithRawBtImage(dataUrl: string) {
+  const href = `intent:${dataUrl}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;S.browser_fallback_url=${encodeURIComponent(RAWBT_STORE)};end`
   window.location.assign(href)
 }
 
@@ -567,17 +604,17 @@ export async function disconnectPrinter() {
 
 export async function printReceipt(ticket: ReceiptTicket) {
   await ensurePrinterConnected()
-  const bytes = await encodeReceipt(ticket, { includeLogo: status.link !== "android" })
+  if (status.link === "android") {
+    printWithRawBtImage(await renderReceiptJpeg(ticket))
+    return
+  }
+  const bytes = await encodeReceipt(ticket)
   if (status.link === "bluetooth" && writeBle) {
     await writeChunks(bytes, writeBle, 20)
     return
   }
   if (status.link === "usb" && serialWriter) {
     await writeChunks(bytes, (chunk) => serialWriter!.write(chunk), 128)
-    return
-  }
-  if (status.link === "android") {
-    await printWithRawBt(bytes)
     return
   }
   throw new Error("Se perdió la conexión con la impresora.")
