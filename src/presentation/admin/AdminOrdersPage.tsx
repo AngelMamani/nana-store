@@ -10,11 +10,22 @@ import {
   payMethodLabel,
   payMethodOf,
   paymentLabel,
+  orderSoldAt,
   paymentMode,
   type OrderChannel,
   type OrderStatus,
   type StoreOrder,
 } from "../../domain/ordering/entities.ts"
+import {
+  formatPeriodLabel,
+  isInPeriod,
+  msUntilNextLocalDay,
+  periodHint,
+  periodRange,
+  shiftPeriod,
+  startOfLocalDay,
+  type OrderPeriodMode,
+} from "../../domain/ordering/period.ts"
 import { container } from "../../infrastructure/composition/container.ts"
 import { confirmAdminAction, promptAdminNumber, showAdminError } from "./admin-alerts.ts"
 import { AdminStoreSaleForm } from "./AdminStoreSaleForm.tsx"
@@ -79,6 +90,9 @@ export function AdminOrdersPage() {
   const [openId, setOpenId] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [saleOpen, setSaleOpen] = useState(false)
+  const [periodMode, setPeriodMode] = useState<OrderPeriodMode>("day")
+  const [anchorMs, setAnchorMs] = useState(() => startOfLocalDay(new Date()).getTime())
+  const [liveToday, setLiveToday] = useState(true)
 
   useEffect(() => {
     let active = true
@@ -105,34 +119,56 @@ export function AdminOrdersPage() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!liveToday) return
+    const today = startOfLocalDay(new Date()).getTime()
+    if (today !== startOfLocalDay(new Date(anchorMs)).getTime()) {
+      setAnchorMs(today)
+    }
+    const timer = window.setTimeout(() => {
+      setAnchorMs(startOfLocalDay(new Date()).getTime())
+    }, msUntilNextLocalDay())
+    return () => window.clearTimeout(timer)
+  }, [liveToday, anchorMs])
+
+  const anchor = useMemo(() => new Date(anchorMs), [anchorMs])
+  const range = useMemo(() => periodRange(periodMode, anchor), [periodMode, anchor])
+  const periodLabel = useMemo(() => formatPeriodLabel(periodMode, anchor), [periodMode, anchor])
+  const whenHint = periodHint(periodMode)
+
   const stats = useMemo(() => {
     let nuevo = 0
     let reservado = 0
     let atendido = 0
     let cancelado = 0
     let sales = 0
-    let tienda = 0
-    let whatsapp = 0
     for (const order of orders) {
-      if (order.status === "nuevo") nuevo += 1
       if (order.status === "reservado") reservado += 1
-      if (order.status === "atendido") atendido += 1
-      if (order.status === "cancelado") cancelado += 1
-      if (order.status !== "cancelado") sales += order.total
-      if (orderChannel(order) === "tienda") tienda += 1
-      else whatsapp += 1
+      const soldAt = orderSoldAt(order)
+      const inPeriod =
+        order.status === "atendido" ? isInPeriod(soldAt ?? undefined, range.start, range.end) : isInPeriod(order.createdAt, range.start, range.end)
+      if (order.status === "nuevo" && inPeriod) nuevo += 1
+      if (order.status === "atendido" && inPeriod) {
+        atendido += 1
+        sales += order.total
+      }
+      if (order.status === "cancelado" && inPeriod) cancelado += 1
     }
-    return { nuevo, reservado, atendido, cancelado, sales, total: orders.length, tienda, whatsapp }
-  }, [orders])
+    return { nuevo, reservado, atendido, cancelado, sales, total: orders.length }
+  }, [orders, range])
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase()
     return orders.filter((order) => {
       if (filter !== "all" && order.status !== filter) return false
       if (channelFilter !== "all" && orderChannel(order) !== channelFilter) return false
-      return matchesQuery(order, needle)
+      if (!matchesQuery(order, needle)) return false
+      if (filter === "reservado") return true
+      if (filter === "all" && order.status === "reservado") return true
+      const stamp = order.status === "atendido" ? (orderSoldAt(order) ?? order.createdAt) : order.createdAt
+      return isInPeriod(stamp, range.start, range.end)
     })
-  }, [orders, query, filter, channelFilter])
+  }, [orders, query, filter, channelFilter, range])
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(page, pageCount)
@@ -151,6 +187,23 @@ export function AdminOrdersPage() {
 
   function applyFilter(next: OrderFilter) {
     setFilter(next)
+    setPage(1)
+  }
+
+  function applyPeriod(mode: OrderPeriodMode) {
+    setPeriodMode(mode)
+    setPage(1)
+  }
+
+  function goToday() {
+    setLiveToday(true)
+    setAnchorMs(startOfLocalDay(new Date()).getTime())
+    setPage(1)
+  }
+
+  function movePeriod(direction: -1 | 1) {
+    setLiveToday(false)
+    setAnchorMs(startOfLocalDay(shiftPeriod(periodMode, anchor, direction)).getTime())
     setPage(1)
   }
 
@@ -238,8 +291,8 @@ export function AdminOrdersPage() {
           <p className="admin-kicker">Ventas</p>
           <h1>Pedidos</h1>
           <p>
-            {stats.total} registrados · {stats.whatsapp} por WhatsApp · {stats.tienda} en tienda. Contra entrega aparta
-            stock; en mostrador también puedes vender prendas no registradas.
+            {periodLabel}: {stats.atendido} ventas cobradas ({formatPen(stats.sales)}). {stats.reservado} reservados
+            siguen pendientes aunque cambie el día.
           </p>
         </div>
         <button type="button" className="btn btn--primary" onClick={() => setSaleOpen(true)}>
@@ -255,7 +308,7 @@ export function AdminOrdersPage() {
           icon="new"
           label="Nuevos"
           value={stats.nuevo}
-          hint="por atender"
+          hint={whenHint}
           active={filter === "nuevo"}
           onClick={() => applyFilter("nuevo")}
         />
@@ -264,7 +317,7 @@ export function AdminOrdersPage() {
           icon="pin"
           label="Reservados"
           value={stats.reservado}
-          hint="contra entrega"
+          hint="no caducan"
           active={filter === "reservado"}
           onClick={() => applyFilter("reservado")}
         />
@@ -273,7 +326,7 @@ export function AdminOrdersPage() {
           icon="ok"
           label="Atendidos"
           value={stats.atendido}
-          hint="ya cobrados"
+          hint={`cobrados ${whenHint}`}
           active={filter === "atendido"}
           onClick={() => applyFilter("atendido")}
         />
@@ -282,20 +335,52 @@ export function AdminOrdersPage() {
           icon="off"
           label="Cancelados"
           value={stats.cancelado}
-          hint="no se despachan"
+          hint={whenHint}
           active={filter === "cancelado"}
           onClick={() => applyFilter("cancelado")}
         />
         <KpiCard
           tone="violet"
           icon="clipboard"
-          label="Vigentes"
+          label="Ventas"
           value={formatPen(stats.sales)}
-          hint="total sin cancelados"
+          hint={`cobrado ${whenHint}`}
           active={filter === "all"}
           onClick={() => applyFilter("all")}
         />
       </section>
+
+      <div className="admin-orders-period">
+        <div className="admin-orders-channels" role="group" aria-label="Periodo">
+          <button type="button" className={periodMode === "day" ? "is-active" : ""} onClick={() => applyPeriod("day")}>
+            Día
+          </button>
+          <button type="button" className={periodMode === "week" ? "is-active" : ""} onClick={() => applyPeriod("week")}>
+            Semana
+          </button>
+          <button type="button" className={periodMode === "month" ? "is-active" : ""} onClick={() => applyPeriod("month")}>
+            Mes
+          </button>
+        </div>
+        <div className="admin-orders-period__nav">
+          <button type="button" aria-label="Periodo anterior" onClick={() => movePeriod(-1)}>
+            <Glyph name="prev" />
+          </button>
+          <strong>{periodLabel}</strong>
+          <button type="button" aria-label="Periodo siguiente" onClick={() => movePeriod(1)}>
+            <Glyph name="next" />
+          </button>
+          <button type="button" className={liveToday ? "is-active" : ""} onClick={goToday}>
+            Hoy
+          </button>
+        </div>
+      </div>
+
+      {filter === "reservado" ? (
+        <p className="admin-orders-hold">
+          Los reservados no se reinician cada día: quedan aquí hasta que los marques como atendidos o cancelados.
+        </p>
+      ) : null}
 
       <div className="admin-orders-channels" role="group" aria-label="Origen">
         <button type="button" className={channelFilter === "all" ? "is-active" : ""} onClick={() => { setChannelFilter("all"); setPage(1) }}>
@@ -348,11 +433,21 @@ export function AdminOrdersPage() {
       {filtered.length === 0 ? (
         <section className="admin-products-empty">
           <Glyph name="clipboard" />
-          <strong>{orders.length === 0 ? "Aún no hay pedidos" : "No hay pedidos con ese filtro"}</strong>
+          <strong>
+            {orders.length === 0
+              ? "Aún no hay pedidos"
+              : filter === "reservado"
+                ? "No hay reservas pendientes"
+                : `No hay pedidos en ${periodLabel}`}
+          </strong>
           <p>
             {orders.length === 0
-              ? "Se registran cuando un cliente envía el carrito por WhatsApp."
-              : "Prueba otra búsqueda o pulsa otra tarjeta de resumen."}
+              ? "Se registran cuando un cliente envía el carrito por WhatsApp o cobras en tienda."
+              : filter === "reservado"
+                ? "Cuando vendas contra entrega, el pedido se queda aquí aunque pase el día."
+                : stats.reservado > 0
+                  ? `Este periodo está vacío. Tienes ${stats.reservado} reservados pendientes: ábrelos en Reservados.`
+                  : "Cambia de día, semana o mes, o pulsa otra tarjeta de resumen."}
           </p>
         </section>
       ) : view === "cards" ? (

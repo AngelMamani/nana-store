@@ -17,6 +17,7 @@ export type OrderLine = {
 export type StoreOrder = {
   id: string
   createdAt: string
+  closedAt?: string
   customerName: string | null
   customerEmail: string | null
   total: number
@@ -68,6 +69,11 @@ export function orderBalance(order: StoreOrder) {
 
 export function orderHoldsStock(status: OrderStatus) {
   return status === "reservado" || status === "atendido"
+}
+
+export function orderSoldAt(order: StoreOrder) {
+  if (order.status !== "atendido") return null
+  return order.closedAt ?? order.createdAt
 }
 
 export function isCustomOrderLine(line: OrderLine) {
