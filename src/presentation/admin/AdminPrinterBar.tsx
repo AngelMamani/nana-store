@@ -56,7 +56,7 @@ export function AdminPrinterBar() {
             : ios
               ? "En iPhone o iPad Safari no puede hablar Bluetooth con la POS58. Al imprimir se abre Compartir o el menú de impresión."
               : android || touch
-                ? "Pulsa Bluetooth y elige la POS58. Si sale “puerto en serie”, cancela: eso es USB, no Bluetooth. USB/COM solo con el cable enchufado."
+                ? "Pulsa Bluetooth y elige la POS58 (sale al toque). Si ya la vinculaste, imprime sin buscar de nuevo."
                 : canUseUsbPrinter()
                   ? "Pulsa USB/COM solo si el cable está enchufado. Si no, Bluetooth."
                   : "Al imprimir se abre el selector. PIN de la POS58: 0000."}
