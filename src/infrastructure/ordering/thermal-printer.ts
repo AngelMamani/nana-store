@@ -45,7 +45,7 @@ type BluetoothNavigator = Navigator & {
   bluetooth?: {
     requestDevice: (options: {
       acceptAllDevices?: boolean
-      filters?: { namePrefix?: string; name?: string }[]
+      filters?: { namePrefix?: string; name?: string; services?: string[] }[]
       optionalServices?: string[]
     }) => Promise<BluetoothDeviceLike>
     getAvailability?: () => Promise<boolean>
@@ -80,6 +80,14 @@ const BLE_NAME_PREFIXES = [
   { namePrefix: "GP" },
   { namePrefix: "Thermal" },
   { namePrefix: "BlueTooth" },
+]
+
+const BLE_PICKER_FILTERS = [
+  ...BLE_NAME_PREFIXES,
+  { services: ["000018f0-0000-1000-8000-00805f9b34fb"] },
+  { services: ["0000ff00-0000-1000-8000-00805f9b34fb"] },
+  { services: ["0000ffe0-0000-1000-8000-00805f9b34fb"] },
+  { services: ["e7810a71-73ae-499d-8c15-faa9aef0c3f2"] },
 ]
 
 const PC850: Record<string, number> = {
@@ -612,26 +620,31 @@ async function printSystemImage(ticket: ReceiptTicket) {
   printImageDocument(dataUrl)
 }
 
+function pickSavedPrinter(devices: BluetoothDeviceLike[]) {
+  return devices.find((device) => /pos|print|mtp|rpp|gp|thermal/i.test(device.name ?? "")) ?? devices[0]
+}
+
 export async function reconnectSavedPrinter() {
   if (status.connected) return true
-  const serial = (navigator as SerialNavigator).serial
-  if (serial?.getPorts) {
-    const ports = await serial.getPorts()
-    for (const port of ports) {
-      try {
-        await openSerialPort(port, "POS58 USB / COM")
-        return true
-      } catch {
-        /* puerto ocupado o cerrado */
+  if (!isTouchClient()) {
+    const serial = (navigator as SerialNavigator).serial
+    if (serial?.getPorts) {
+      const ports = await serial.getPorts()
+      for (const port of ports) {
+        try {
+          await openSerialPort(port, "POS58 USB / COM")
+          return true
+        } catch {
+          /* puerto ocupado o cerrado */
+        }
       }
     }
   }
-  if (!(await bluetoothPrinterAvailable())) return status.connected
   const bluetooth = (navigator as BluetoothNavigator).bluetooth
   if (bluetooth?.getDevices) {
     try {
       const devices = await bluetooth.getDevices()
-      const printer = devices.find((device) => /pos|print|mtp|rpp/i.test(device.name ?? "")) ?? devices[0]
+      const printer = pickSavedPrinter(devices)
       if (printer) {
         await attachBluetoothDevice(printer)
         return true
@@ -652,39 +665,36 @@ export async function connectBluetoothPrinter() {
         : "Este navegador no permite Bluetooth. En Windows usa USB/COM.",
     )
   }
-  const touch = isTouchClient()
-  if (!isAndroidClient() && !touch && !(await bluetoothPrinterAvailable())) {
-    throw new Error("Bluetooth está bloqueado en este navegador. En Windows usa USB/COM: la POS58 emparejada aparece como puerto COM.")
+  if (api.getDevices) {
+    try {
+      const saved = pickSavedPrinter(await api.getDevices())
+      if (saved) {
+        await attachBluetoothDevice(saved)
+        return
+      }
+    } catch {
+      /* hay que elegirla otra vez */
+    }
   }
   let device: BluetoothDeviceLike
-  if (isAndroidClient() || touch) {
-    try {
-      device = await api.requestDevice({
-        acceptAllDevices: true,
-        optionalServices: BLE_SERVICES,
-      })
-    } catch (error) {
-      const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase()
-      if (message.includes("gesture") || message.includes("notallowed") || message.includes("not allowed")) {
-        throw new Error("Pulsa Bluetooth o Imprimir otra vez y elige la POS58. En tablet usa Chrome, no el navegador de Samsung.")
-      }
-      throw error
+  try {
+    device = await api.requestDevice({
+      filters: BLE_PICKER_FILTERS,
+      optionalServices: BLE_SERVICES,
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase()
+    if (message.includes("gesture") || message.includes("notallowed") || message.includes("not allowed")) {
+      throw new Error("Pulsa Bluetooth o Imprimir otra vez y elige la POS58.")
     }
-  } else {
-    try {
-      device = await api.requestDevice({
-        filters: BLE_NAME_PREFIXES,
-        optionalServices: BLE_SERVICES,
-      })
-    } catch (error) {
-      if (isBluetoothBlockedError(error)) {
-        throw new Error("Bluetooth está bloqueado en este navegador. En Windows usa USB/COM.")
-      }
-      device = await api.requestDevice({
-        acceptAllDevices: true,
-        optionalServices: BLE_SERVICES,
-      })
+    if (isBluetoothBlockedError(error)) {
+      throw new Error(
+        isAndroidClient() || isTouchClient()
+          ? "Bluetooth está bloqueado. Usa Chrome, enciende Bluetooth y recarga Pedidos."
+          : "Bluetooth está bloqueado en este navegador. En Windows usa USB/COM.",
+      )
     }
+    throw error
   }
   await attachBluetoothDevice(device)
 }
@@ -709,12 +719,12 @@ async function hasGrantedSerialPort() {
 
 export async function ensurePrinterConnected() {
   if (status.connected) return
+  if (await reconnectSavedPrinter()) return
   const wantBluetooth = canUseBluetoothPrinter() && (isAndroidClient() || isTouchClient())
   if (wantBluetooth) {
     await connectBluetoothPrinter()
     return
   }
-  if (await reconnectSavedPrinter()) return
   if (await hasGrantedSerialPort()) {
     if (await reconnectSavedPrinter()) return
   }
