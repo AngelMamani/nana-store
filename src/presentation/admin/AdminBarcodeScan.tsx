@@ -48,8 +48,9 @@ export function AdminBarcodeScan({
   onDetectRef.current = onDetect
 
   useEffect(() => {
-    const video = videoRef.current
-    if (!video) return
+    const preview = videoRef.current
+    if (!preview) return
+    const video: HTMLVideoElement = preview
     video.setAttribute("playsinline", "true")
     const detector = createDetector()
     let stream: MediaStream | null = null
