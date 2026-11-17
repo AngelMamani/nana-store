@@ -143,10 +143,10 @@ export function receiptBodyLines(ticket: ReceiptTicket, columns = WIDTH) {
   lines.push(rule)
   for (const line of ticket.lines) {
     const qty = `${line.quantity}x `
-    const name = fit(line.name, columns - qty.length)
-    lines.push(`${qty}${name}`)
+    const amount = money(line.unitPrice * line.quantity)
+    const name = fit(line.name, columns - qty.length - amount.length - 1)
+    lines.push(padRow(`${qty}${name}`, amount, columns))
     if (line.detail) lines.push(`  ${fit(line.detail.replace(/·/g, "-"), columns - 2)}`)
-    lines.push(padRow("", money(line.unitPrice * line.quantity), columns))
   }
   lines.push(rule)
   lines.push(padRow("TOTAL", money(ticket.total), columns))
@@ -162,6 +162,5 @@ export function receiptBodyLines(ticket: ReceiptTicket, columns = WIDTH) {
   lines.push(rule)
   lines.push("Gracias por su compra")
   lines.push("Vuelva pronto")
-  lines.push("")
   return lines
 }

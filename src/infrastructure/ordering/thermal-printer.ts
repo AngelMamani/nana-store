@@ -364,15 +364,13 @@ export async function encodeReceipt(ticket: ReceiptTicket) {
   for (const line of receiptBodyLines(ticket)) {
     if (line.startsWith("TOTAL")) {
       chunks.push(new Uint8Array([0x1b, 0x45, 0x01]))
-      chunks.push(new Uint8Array([0x1d, 0x21, 0x10]))
       chunks.push(encodeLine(line))
-      chunks.push(new Uint8Array([0x1d, 0x21, 0x00]))
       chunks.push(new Uint8Array([0x1b, 0x45, 0x00]))
       continue
     }
     chunks.push(encodeLine(line))
   }
-  chunks.push(new Uint8Array([0x0a, 0x0a]))
+  chunks.push(new Uint8Array([0x0a]))
   chunks.push(new Uint8Array([0x1d, 0x56, 0x41, 0x10]))
   return concat(chunks)
 }
@@ -545,8 +543,9 @@ async function renderReceiptJpeg(ticket: ReceiptTicket) {
   context.fillStyle = "#111111"
   context.textBaseline = "top"
   for (const line of lines) {
-    const title = line === "BOLETA SIMPLE" || line.startsWith("TOTAL") || line.startsWith("Gracias")
-    context.font = `${title ? "bold " : ""}22px monospace`
+    const title = line === "BOLETA SIMPLE" || line.startsWith("Gracias")
+    const total = line.startsWith("TOTAL")
+    context.font = `${title || total ? "bold " : ""}22px monospace`
     context.textAlign = title ? "center" : "left"
     const x = title ? PAPER_DOTS / 2 : pad
     context.fillText(line, x, y, PAPER_DOTS - pad * 2)
