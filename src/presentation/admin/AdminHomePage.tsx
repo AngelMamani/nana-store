@@ -3,23 +3,45 @@ import { Link } from "react-router-dom"
 import { formatPen } from "../../domain/catalog/money.ts"
 import { summarizePrice } from "../../domain/catalog/pricing.ts"
 import { isLowStock, productStock } from "../../domain/catalog/stock.ts"
+import type { StoreOrder } from "../../domain/ordering/entities.ts"
 import { container } from "../../infrastructure/composition/container.ts"
 import { useAuth } from "../auth/auth-context.ts"
 import { useCatalog } from "../catalog/catalog-context.ts"
 
-const SHORTCUTS = [
-  { to: "/admin/productos", label: "Productos", hint: "Editar catálogo", icon: "shirt", tone: "pink" },
-  { to: "/admin/inventario", label: "Inventario", hint: "Control de stock", icon: "box", tone: "violet" },
-  { to: "/admin/ofertas", label: "Ofertas", hint: "Precios promo", icon: "tag", tone: "gold" },
-  { to: "/admin/pedidos", label: "Pedidos", hint: "Seguimiento", icon: "clipboard", tone: "mint" },
-  { to: "/admin/videos", label: "Videos", hint: "Portada y reels", icon: "video", tone: "rose" },
-  { to: "/admin/tienda", label: "Tienda", hint: "Datos públicos", icon: "store", tone: "ink" },
+const TILES = [
+  { to: "/admin/productos", label: "Productos", icon: "shirt" },
+  { to: "/admin/inventario", label: "Inventario", icon: "box" },
+  { to: "/admin/ofertas", label: "Ofertas", icon: "tag" },
+  { to: "/admin/categorias", label: "Categorías", icon: "grid" },
+  { to: "/admin/usuarios", label: "Usuarios", icon: "users" },
+  { to: "/admin/videos", label: "Videos", icon: "video" },
+  { to: "/admin/tienda", label: "Tienda", icon: "store" },
+  { to: "/admin/productos/nuevo", label: "Nuevo", icon: "plus" },
 ] as const
 
-function greetingForHour(hour: number) {
-  if (hour < 12) return "Buenos días"
-  if (hour < 19) return "Buenas tardes"
-  return "Buenas noches"
+function greetingName(fullName?: string) {
+  const first = fullName?.trim().split(/\s+/)[0]
+  return first ? first.toUpperCase() : ""
+}
+
+function isSameDay(value: string, now: Date) {
+  const date = new Date(value)
+  return (
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  )
+}
+
+function orderPulse(orders: StoreOrder[], now: Date) {
+  const today = orders.filter((order) => isSameDay(order.createdAt, now))
+  const open = orders.filter((order) => order.status === "nuevo" || order.status === "reservado")
+  const nuevos = orders.filter((order) => order.status === "nuevo")
+  return {
+    today: today.length,
+    open: open.length,
+    nuevos: nuevos.length,
+  }
 }
 
 export function AdminHomePage() {
@@ -30,13 +52,10 @@ export function AdminHomePage() {
   const categories = container.listCategories()
   const offers = products.filter((product) => summarizePrice(product).offer)
   const low = products.filter((product) => isLowStock(product))
-  const [orderCount, setOrderCount] = useState(0)
+  const [orders, setOrders] = useState<StoreOrder[]>([])
   const now = new Date()
-  const dateLabel = now.toLocaleDateString("es-PE", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  })
+  const pulse = orderPulse(orders, now)
+  const hello = greetingName(customer?.name)
 
   useEffect(() => {
     let active = true
@@ -44,9 +63,9 @@ export function AdminHomePage() {
     async function load() {
       try {
         const next = await container.listOrders()
-        if (active) setOrderCount(next.length)
+        if (active) setOrders(next)
       } catch {
-        if (active) setOrderCount(0)
+        if (active) setOrders([])
       }
     }
 
@@ -66,56 +85,52 @@ export function AdminHomePage() {
 
   return (
     <div className="admin-screen admin-home">
-      <section className="admin-home-hero">
-        <div className="admin-home-hero__glow" aria-hidden="true" />
-        <div className="admin-home-hero__copy">
-          <p className="admin-home-hero__kicker">{dateLabel}</p>
-          <h1>
-            {greetingForHour(now.getHours())}
-            {customer?.name ? `, ${customer.name.split(" ")[0]}` : ""}
-          </h1>
-          <p>
-            {store.name} está listo para el día: revisa stock, ofertas y lo que se ve en la portada.
+      <header className="admin-home-hello">
+        <h1>
+          HOLA{hello ? `, ${hello}` : ""}
+        </h1>
+        <p>Bienvenido al panel principal</p>
+      </header>
+
+      <section className="admin-home-dash" aria-label="Menú principal">
+        <Link to="/admin/pedidos" className="admin-home-feature">
+          <p className="admin-home-feature__title">
+            <HomeGlyph name="clipboard" />
+            Pedidos
           </p>
-          <div className="admin-home-hero__actions">
-            <Link className="btn" to="/admin/productos/nuevo">
-              Nuevo producto
-            </Link>
-            <Link className="admin-home-ghost" to="/admin/pedidos">
-              Ver pedidos
-            </Link>
-          </div>
-        </div>
-        <div className="admin-home-hero__brand">
-          <img src={store.logo} alt="" />
-          <div className="admin-home-hero__brand-copy">
-            <strong>{store.name}</strong>
-            <span>Panel de administración</span>
-          </div>
-        </div>
-      </section>
+          <ul>
+            <li>
+              <span>Ahora</span>
+              <strong>
+                {pulse.nuevos === 0 ? "Sin pedidos nuevos" : `${pulse.nuevos} ${pulse.nuevos === 1 ? "nuevo" : "nuevos"}`}
+              </strong>
+            </li>
+            <li>
+              <span>Hoy</span>
+              <strong>
+                {pulse.today === 0 ? "Aún no hay ventas" : `${pulse.today} ${pulse.today === 1 ? "pedido" : "pedidos"}`}
+              </strong>
+            </li>
+            <li>
+              <span>Pendientes</span>
+              <strong>
+                {pulse.open === 0 ? "Todo al día" : `${pulse.open} por atender`}
+              </strong>
+            </li>
+          </ul>
+        </Link>
 
-      <section className="admin-home-stats" aria-label="Resumen">
-        <StatCard tone="pink" icon="shirt" label="Productos" value={products.length} hint="en el catálogo" />
-        <StatCard tone="violet" icon="grid" label="Categorías" value={categories.length} hint="de ropa infantil" />
-        <StatCard tone="gold" icon="tag" label="En oferta" value={offers.length} hint="con precio promo" />
-        <StatCard tone="coral" icon="alert" label="Stock bajo" value={low.length} hint="3 unidades o menos" />
-        <StatCard tone="mint" icon="clipboard" label="Pedidos" value={orderCount} hint="registrados" />
-      </section>
-
-      <section className="admin-home-shortcuts" aria-label="Accesos rápidos">
-        {SHORTCUTS.map((item) => (
-          <Link key={item.to} to={item.to} className={`admin-home-shortcut is-${item.tone}`}>
-            <span className="admin-home-shortcut__icon">
+        {TILES.map((item) => (
+          <Link key={item.to} to={item.to} className="admin-home-tile">
+            <span className="admin-home-tile__icon">
               <HomeGlyph name={item.icon} />
             </span>
-            <span>
-              <strong>{item.label}</strong>
-              <em>{item.hint}</em>
-            </span>
+            <strong>{item.label}</strong>
           </Link>
         ))}
       </section>
+
+      <p className="admin-home-store">{store.name} · {products.length} productos · {offers.length} ofertas · {low.length} stock bajo</p>
 
       <div className="admin-home-split">
         <section className="admin-home-panel">
@@ -184,31 +199,6 @@ export function AdminHomePage() {
   )
 }
 
-function StatCard({
-  tone,
-  icon,
-  label,
-  value,
-  hint,
-}: {
-  tone: string
-  icon: string
-  label: string
-  value: number
-  hint: string
-}) {
-  return (
-    <article className={`admin-home-stat is-${tone}`}>
-      <span className="admin-home-stat__icon">
-        <HomeGlyph name={icon} />
-      </span>
-      <span>{label}</span>
-      <strong>{value}</strong>
-      <em>{hint}</em>
-    </article>
-  )
-}
-
 function HomeGlyph({ name }: { name: string }) {
   const icons: Record<string, ReactNode> = {
     shirt: <path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.5a2 2 0 0 0 1.98 1.67H6v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V10.86h1.16a2 2 0 0 0 1.98-1.67l.58-3.5a2 2 0 0 0-1.34-2.23z" />,
@@ -224,13 +214,6 @@ function HomeGlyph({ name }: { name: string }) {
       <>
         <path d="M12 2H2v10l9.29 9.29a1 1 0 0 0 1.41 0l8.59-8.59a1 1 0 0 0 0-1.41Z" />
         <circle cx="6.5" cy="6.5" r="1.5" />
-      </>
-    ),
-    alert: (
-      <>
-        <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
-        <path d="M12 9v4" />
-        <path d="M12 17h.01" />
       </>
     ),
     clipboard: (
@@ -259,10 +242,24 @@ function HomeGlyph({ name }: { name: string }) {
         <path d="M9 20v-6h6v6" />
       </>
     ),
+    users: (
+      <>
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </>
+    ),
+    plus: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 8v8M8 12h8" />
+      </>
+    ),
   }
 
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg viewBox="0 0 24 24" aria-hidden="true" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       {icons[name]}
     </svg>
   )

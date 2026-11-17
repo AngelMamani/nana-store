@@ -178,6 +178,13 @@ export function AdminLayout() {
       </aside>
       <div className="admin-main">
         <header className="admin-topbar">
+          <span className="admin-topbar__avatar" aria-hidden="true">
+            {customerInitials(customer?.name)}
+          </span>
+          <div className="admin-topbar__brand">
+            <img src={store.logo} alt="" />
+            <strong>NaNa Admin</strong>
+          </div>
           <button
             type="button"
             className="admin-topbar__menu"
@@ -188,15 +195,17 @@ export function AdminLayout() {
           >
             <NavGlyph name="menu" />
           </button>
-          <div className="admin-topbar__brand">
-            <img src={store.logo} alt="" />
-            <strong>NaNa Admin</strong>
-          </div>
         </header>
         <Outlet context={{ theme, themeLabel, toggleTheme } satisfies AdminShellContext} />
       </div>
     </div>
   )
+}
+
+function customerInitials(name?: string) {
+  const parts = name?.trim().split(/\s+/).filter(Boolean) ?? []
+  if (parts.length === 0) return "NN"
+  return parts.slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "").join("")
 }
 
 function NavGlyph({ name }: { name: string }) {
