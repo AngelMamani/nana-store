@@ -208,10 +208,95 @@ function fitLogo(image: HTMLImageElement) {
   }
 }
 
+function stripLogoBackground(frame: ImageData) {
+  const { data, width, height } = frame
+  const idx = (x: number, y: number) => (y * width + x) * 4
+  const luma = (i: number) => (data[i] ?? 255) * 0.3 + (data[i + 1] ?? 255) * 0.59 + (data[i + 2] ?? 255) * 0.11
+  const insetX = Math.min(4, width - 1)
+  const insetY = Math.min(4, height - 1)
+  const samples = [idx(insetX, insetY), idx(width - 1 - insetX, insetY), idx(insetX, height - 1 - insetY), idx(width - 1 - insetX, height - 1 - insetY)]
+  let sr = 0
+  let sg = 0
+  let sb = 0
+  let sa = 0
+  let sl = 0
+  for (const i of samples) {
+    sr += data[i] ?? 255
+    sg += data[i + 1] ?? 255
+    sb += data[i + 2] ?? 255
+    sa += data[i + 3] ?? 255
+    sl += luma(i)
+  }
+  sr /= 4
+  sg /= 4
+  sb /= 4
+  sa /= 4
+  sl /= 4
+  if (sa < 90) return
+  const lightBg = sl >= 145
+  const match = (i: number) => {
+    if ((data[i + 3] ?? 0) < 24) return true
+    const dr =
+      Math.abs((data[i] ?? 0) - sr) + Math.abs((data[i + 1] ?? 0) - sg) + Math.abs((data[i + 2] ?? 0) - sb)
+    if (dr <= 108) return true
+    const tone = luma(i)
+    if (lightBg && tone > 224) return true
+    if (!lightBg && tone < 36 && dr <= 140) return true
+    return false
+  }
+  const seen = new Uint8Array(width * height)
+  const stack: number[] = []
+  const tryPush = (x: number, y: number) => {
+    if (x < 0 || y < 0 || x >= width || y >= height) return
+    const pixel = y * width + x
+    if (seen[pixel]) return
+    if (!match(idx(x, y))) return
+    seen[pixel] = 1
+    stack.push(pixel)
+  }
+  for (let x = 0; x < width; x += 1) {
+    tryPush(x, 0)
+    tryPush(x, height - 1)
+  }
+  for (let y = 0; y < height; y += 1) {
+    tryPush(0, y)
+    tryPush(width - 1, y)
+  }
+  while (stack.length) {
+    const pixel = stack.pop() ?? 0
+    data[pixel * 4 + 3] = 0
+    const x = pixel % width
+    const y = (pixel / width) | 0
+    tryPush(x - 1, y)
+    tryPush(x + 1, y)
+    tryPush(x, y - 1)
+    tryPush(x, y + 1)
+  }
+}
+
+function canvasWithoutLogoBackground(image: HTMLImageElement, drawWidth: number, drawHeight: number) {
+  const canvas = document.createElement("canvas")
+  canvas.width = drawWidth
+  canvas.height = drawHeight
+  const context = canvas.getContext("2d")
+  if (!context) return canvas
+  context.clearRect(0, 0, drawWidth, drawHeight)
+  context.drawImage(image, 0, 0, drawWidth, drawHeight)
+  try {
+    const frame = context.getImageData(0, 0, drawWidth, drawHeight)
+    stripLogoBackground(frame)
+    context.putImageData(frame, 0, 0)
+  } catch {
+    /* canvas tintado: se deja el logo original */
+  }
+  return canvas
+}
+
 async function encodeLogo(url: string) {
   try {
     const image = await loadImage(url)
     const { drawWidth, drawHeight } = fitLogo(image)
+    const cut = canvasWithoutLogoBackground(image, drawWidth, drawHeight)
     const bytesPerRow = Math.ceil(drawWidth / 8)
     const canvas = document.createElement("canvas")
     canvas.width = bytesPerRow * 8
@@ -221,7 +306,7 @@ async function encodeLogo(url: string) {
     context.fillStyle = "#ffffff"
     context.fillRect(0, 0, canvas.width, canvas.height)
     const offsetX = Math.floor((canvas.width - drawWidth) / 2)
-    context.drawImage(image, offsetX, 0, drawWidth, drawHeight)
+    context.drawImage(cut, offsetX, 0)
     const pixels = context.getImageData(0, 0, canvas.width, drawHeight).data
     const raster = new Uint8Array(bytesPerRow * drawHeight)
     for (let y = 0; y < drawHeight; y += 1) {
@@ -449,7 +534,8 @@ async function renderReceiptJpeg(ticket: ReceiptTicket) {
   context.fillRect(0, 0, canvas.width, canvas.height)
   let y = pad
   if (logo) {
-    context.drawImage(logo, Math.floor((PAPER_DOTS - logoW) / 2), y, logoW, logoH)
+    const cut = canvasWithoutLogoBackground(logo, logoW, logoH)
+    context.drawImage(cut, Math.floor((PAPER_DOTS - logoW) / 2), y)
     y += logoH + 12
   }
   context.fillStyle = "#111111"
