@@ -420,7 +420,9 @@ function bytesToBase64(bytes: Uint8Array) {
 
 async function printWithRawBt(bytes: Uint8Array) {
   const payload = bytesToBase64(bytes)
-  const file = new File([bytes], "boleta.prn", { type: "application/octet-stream" })
+  const copy = new Uint8Array(bytes.byteLength)
+  copy.set(bytes)
+  const file = new File([copy.buffer], "boleta.prn", { type: "application/octet-stream" })
   const share = navigator as Navigator & {
     canShare?: (data: { files?: File[] }) => boolean
     share?: (data: { files?: File[]; title?: string }) => Promise<void>
