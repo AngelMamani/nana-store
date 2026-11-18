@@ -3648,6 +3648,261 @@ legend { font-weight: 800; margin-bottom: 8px; }
   border-radius: 12px;
 }
 
+.admin-create {
+  max-width: 720px;
+  gap: 14px;
+  padding-bottom: 24px;
+}
+
+.admin-create__bar {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-create__bar h1 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.admin-create__back,
+.admin-create__cancel {
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  border-radius: 14px;
+  text-decoration: none;
+  font-weight: 800;
+}
+
+.admin-create__back {
+  width: 48px;
+  border: 1.5px solid var(--admin-line);
+  background: var(--admin-card);
+  color: var(--admin-ink);
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.admin-create__cancel {
+  padding: 0 12px;
+  color: var(--admin-muted);
+}
+
+.admin-create__dots {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.admin-create__dots li {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.admin-create__dots button {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--admin-soft);
+  color: var(--admin-muted);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.admin-create__dots .is-on button,
+.admin-create__dots .is-done button {
+  background: var(--pink);
+  color: #fff;
+}
+
+.admin-create__dots .is-on {
+  color: var(--pink-dark);
+}
+
+.admin-create__card {
+  background: var(--admin-card);
+  border: 1px solid var(--admin-line);
+  border-radius: 22px;
+  padding: 18px;
+  box-shadow: 0 12px 28px rgba(43, 36, 48, 0.06);
+}
+
+.admin-create__intro h2 {
+  margin: 0;
+  font-size: 22px;
+  color: var(--admin-ink);
+}
+
+.admin-create__intro p {
+  margin: 6px 0 12px;
+  color: var(--admin-muted);
+  font-weight: 600;
+}
+
+.admin-create__legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.admin-create__photos {
+  position: relative;
+}
+
+.admin-create__drop {
+  position: relative;
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  min-height: 180px;
+  padding: 24px 16px;
+  border: 2px dashed color-mix(in srgb, var(--pink) 45%, var(--admin-line));
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--pink) 8%, var(--admin-soft));
+  text-align: center;
+  cursor: pointer;
+}
+
+.admin-create__drop input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.admin-create__drop strong {
+  font-size: 16px;
+  color: var(--admin-ink);
+}
+
+.admin-create__drop em {
+  font-style: normal;
+  font-size: 13px;
+  color: var(--admin-muted);
+}
+
+.admin-create__stock {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-create__stock h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  color: var(--admin-ink);
+}
+
+.admin-create__chips,
+.admin-create__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-create__chips button {
+  min-width: 48px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 14px;
+  border: 1.5px solid var(--admin-line);
+  background: var(--admin-soft);
+  color: var(--admin-ink);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.admin-create__chips button.is-on {
+  background: var(--pink);
+  border-color: var(--pink);
+  color: #fff;
+}
+
+.admin-create__add {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.admin-create__add input {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-create__add .btn {
+  margin: 0;
+  flex: none;
+}
+
+.admin-create__tags li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: var(--admin-soft);
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.admin-create__tags button {
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--admin-muted);
+  cursor: pointer;
+}
+
+.admin-create__combos {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.admin-create__combos li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--admin-soft);
+  font-weight: 800;
+}
+
+.admin-create__foot {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 10px;
+  position: sticky;
+  bottom: 0;
+  padding-top: 14px;
+  background: linear-gradient(180deg, transparent, var(--admin-card) 18%);
+}
+
+.admin-create__foot .btn {
+  margin: 0;
+  min-height: 48px;
+}
+
 .admin-gallery {
   margin: 0;
   padding: 0;
@@ -6919,6 +7174,14 @@ legend { font-weight: 800; margin-bottom: 8px; }
 
 .admin-shell[data-theme="dark"] .admin-topbar__avatar {
   background: #3a3a40;
+}
+
+.admin-shell[data-theme="dark"] .admin-create__card {
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+}
+
+.admin-shell[data-theme="dark"] .admin-create__dots .is-on {
+  color: #ff8ac4;
 }
 
 @media (max-width: 1100px) {

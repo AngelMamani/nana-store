@@ -49,6 +49,15 @@ function uniqueGallery(product: Product | null) {
   return [...new Set([product.image, ...product.gallery].filter((image): image is string => Boolean(image)))]
 }
 
+const STEPS = [
+  { title: "Fotos", hint: "Toca para agregar las fotos de la prenda." },
+  { title: "Qué es", hint: "Dile a NaNa cómo se llama y de qué categoría es." },
+  { title: "Precio", hint: "El precio de venta. La oferta es opcional." },
+  { title: "Tallas", hint: "Elige colores, tallas y cuántas unidades hay." },
+] as const
+
+const SIZE_PRESETS = ["2", "4", "6", "8", "10", "12", "14", "S", "M", "L"]
+
 function comboOptions(color: string | null, size: string | null) {
   return [
     ...(color ? [{ name: "Color", title: color }] : []),
@@ -68,6 +77,9 @@ export function AdminProductFormPage() {
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(0)
   const [scanOpen, setScanOpen] = useState(false)
+  const [step, setStep] = useState(0)
+  const [colorDraft, setColorDraft] = useState("")
+  const [sizeDraft, setSizeDraft] = useState("")
   const [gallery, setGallery] = useState<string[]>(() => uniqueGallery(existing))
   const [stocks, setStocks] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {}
@@ -113,32 +125,6 @@ export function AdminProductFormPage() {
     setStocks((current) => ({ ...current, [variantOptionKey(options)]: value }))
   }
 
-  function remapStocks(kind: "Color" | "Tamaño", from: string, to: string) {
-    const previous = from.trim()
-    const nextName = to.trim()
-    if (!previous || previous === nextName) return
-    setStocks((current) => {
-      const next = { ...current }
-      for (const [key, value] of Object.entries(current)) {
-        const token = `${kind}:${previous}`
-        if (!key.split("|").includes(token)) continue
-        delete next[key]
-        next[key.replace(token, `${kind}:${nextName}`)] = value
-      }
-      return next
-    })
-  }
-
-  function changeColor(index: number, value: string) {
-    remapStocks("Color", colors[index], value)
-    setColors((current) => current.map((item, itemIndex) => (itemIndex === index ? value : item)))
-  }
-
-  function changeSize(index: number, value: string) {
-    remapStocks("Tamaño", sizes[index], value)
-    setSizes((current) => current.map((item, itemIndex) => (itemIndex === index ? value : item)))
-  }
-
   function removeColor(index: number) {
     setColors((current) => current.filter((_, itemIndex) => itemIndex !== index))
   }
@@ -147,7 +133,47 @@ export function AdminProductFormPage() {
     setSizes((current) => current.filter((_, itemIndex) => itemIndex !== index))
   }
 
-  const sizeColumns = namedSizes.length ? namedSizes : [null]
+  function addNamed(kind: "color" | "size", raw: string) {
+    const value = raw.trim()
+    if (!value) return
+    if (kind === "color") {
+      setColors((current) => (current.some((item) => item.trim().toLowerCase() === value.toLowerCase()) ? current : [...current, value]))
+      setColorDraft("")
+      return
+    }
+    setSizes((current) => (current.some((item) => item.trim().toLowerCase() === value.toLowerCase()) ? current : [...current, value]))
+    setSizeDraft("")
+  }
+
+  function toggleSize(value: string) {
+    setSizes((current) =>
+      current.some((item) => item.trim().toLowerCase() === value.toLowerCase())
+        ? current.filter((item) => item.trim().toLowerCase() !== value.toLowerCase())
+        : [...current, value],
+    )
+  }
+
+  function goBack() {
+    if (step > 0) {
+      setStep((current) => current - 1)
+      return
+    }
+    if (window.history.length > 1) navigate(-1)
+    else navigate("/admin/productos")
+  }
+
+  async function goNext() {
+    if (step === 1 && !form.name.trim()) {
+      await showAdminError("Falta el nombre", "Escribe cómo se llama la prenda para continuar.")
+      return
+    }
+    if (step === 2 && (form.price.trim() === "" || !Number.isFinite(Number(form.price)))) {
+      await showAdminError("Falta el precio", "Escribe el precio de venta en soles.")
+      return
+    }
+    setStep((current) => current + 1)
+  }
+
   const totalUnits = preview.variants.reduce((sum, variant) => {
     const raw = stocks[variantOptionKey(variant.options)]
     const amount = raw === "" || raw === undefined ? Number(variant.stock ?? 0) : Number(raw)
@@ -231,261 +257,326 @@ export function AdminProductFormPage() {
     }
   }
 
+  const current = STEPS[step]
+
   return (
-    <div className="admin-screen">
-      <header className="admin-screen__head">
+    <div className="admin-screen admin-create">
+      <header className="admin-create__bar">
+        <button type="button" className="admin-create__back" onClick={goBack} aria-label={step === 0 ? "Regresar" : "Paso anterior"}>
+          ←
+        </button>
         <div>
-          <p className="admin-kicker">Catálogo</p>
+          <p className="admin-kicker">
+            Paso {step + 1} de {STEPS.length}
+          </p>
           <h1>{existing ? "Editar producto" : "Nuevo producto"}</h1>
-          <p>Agrega colores y tallas directo en la tabla, con el stock de cada combinación.</p>
         </div>
-        <Link className="btn btn--outline" to="/admin/productos">
-          Volver
+        <Link className="admin-create__cancel" to="/admin">
+          Inicio
         </Link>
       </header>
 
-      <form className="admin-card admin-form" onSubmit={onSubmit}>
-        <label>
-          Nombre
-          <input value={form.name} onChange={(event) => patch({ name: event.target.value })} required />
-        </label>
-        <div className="admin-form__row">
-          <label>
-            Código
-            <div className="admin-form__code">
-              <input
-                value={form.code}
-                onChange={(event) => patch({ code: event.target.value })}
-                placeholder="Escanear o escribir"
-                autoComplete="off"
-              />
-              <button type="button" className="btn btn--outline" onClick={() => setScanOpen(true)}>
-                Escanear
-              </button>
-            </div>
-          </label>
-          <label>
-            Categoría
-            <select value={form.categoryId} onChange={(event) => patch({ categoryId: event.target.value })}>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <label>
-          Descripción
-          <textarea value={form.description} onChange={(event) => patch({ description: event.target.value })} rows={4} />
-        </label>
-        <div className="admin-form__row">
-          <label>
-            Precio (S/)
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.price}
-              onChange={(event) => patch({ price: event.target.value })}
-              required
-            />
-          </label>
-          <label>
-            Precio de oferta
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.promotionalPrice}
-              onChange={(event) => patch({ promotionalPrice: event.target.value })}
-              placeholder="Opcional"
-            />
-          </label>
-        </div>
-        <fieldset className="admin-gallery">
-          <legend>Fotos</legend>
-          <p className="admin-form__hint">Puedes subir varias. La primera es la principal en la tienda.</p>
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            disabled={uploading > 0}
-            onChange={(event) => {
-              const selected = Array.from(event.target.files ?? [])
-              event.target.value = ""
-              void onUpload(selected)
-            }}
-          />
-          {uploading > 0 && <p className="admin-form__hint">Subiendo {uploading} fotos…</p>}
-          {gallery.length > 0 && (
-            <ul className="admin-gallery__list">
-              {gallery.map((image, index) => (
-                <li key={image}>
-                  <img src={image} alt="" />
-                  {index === 0 && <em>Principal</em>}
-                  <div>
-                    {index > 0 && (
-                      <button type="button" onClick={() => setGallery((current) => [image, ...current.filter((item) => item !== image)])}>
-                        Principal
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="is-danger"
-                      onClick={() => setGallery((current) => current.filter((item) => item !== image))}
-                    >
-                      Quitar
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </fieldset>
+      <ol className="admin-create__dots" aria-label="Pasos">
+        {STEPS.map((item, index) => (
+          <li key={item.title} className={index === step ? "is-on" : index < step ? "is-done" : ""}>
+            <button type="button" onClick={() => setStep(index)}>
+              {index + 1}
+            </button>
+            <span>{item.title}</span>
+          </li>
+        ))}
+      </ol>
 
-        <section className="admin-stock-matrix">
-          <header>
-            <div>
-              <h2>Colores, tallas y stock</h2>
-              <p className="admin-form__hint">
-                {preview.variants.length} combinaciones · {totalUnits} unidades en total. Escribe el nombre en la fila o columna y la cantidad en cada casilla.
-              </p>
-            </div>
-            <div className="admin-stock-matrix__fill">
+      <form className="admin-create__card admin-form" onSubmit={onSubmit}>
+        <div className="admin-create__intro">
+          <h2>{current.title}</h2>
+          <p>{current.hint}</p>
+        </div>
+
+        {step === 0 ? (
+          <fieldset className="admin-gallery admin-create__photos">
+            <legend className="admin-create__legend">Fotos</legend>
+            <label className="admin-create__drop">
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                disabled={uploading > 0}
+                onChange={(event) => {
+                  const selected = Array.from(event.target.files ?? [])
+                  event.target.value = ""
+                  void onUpload(selected)
+                }}
+              />
+              <strong>{uploading > 0 ? `Subiendo ${uploading} fotos…` : "Toca para sacar o elegir fotos"}</strong>
+              <em>La primera foto es la que se ve en la tienda.</em>
+            </label>
+            {gallery.length > 0 && (
+              <ul className="admin-gallery__list">
+                {gallery.map((image, index) => (
+                  <li key={image}>
+                    <img src={image} alt="" />
+                    {index === 0 && <em>Principal</em>}
+                    <div>
+                      {index > 0 && (
+                        <button type="button" onClick={() => setGallery((current) => [image, ...current.filter((item) => item !== image)])}>
+                          Principal
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="is-danger"
+                        onClick={() => setGallery((current) => current.filter((item) => item !== image))}
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </fieldset>
+        ) : null}
+
+        {step === 1 ? (
+          <>
+            <label>
+              Nombre de la prenda
+              <input
+                value={form.name}
+                onChange={(event) => patch({ name: event.target.value })}
+                placeholder="Ej. Vestido floral rosa"
+                required
+              />
+            </label>
+            <label>
+              Categoría
+              <select value={form.categoryId} onChange={(event) => patch({ categoryId: event.target.value })}>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Código de barras (opcional)
+              <div className="admin-form__code">
+                <input
+                  value={form.code}
+                  onChange={(event) => patch({ code: event.target.value })}
+                  placeholder="Escanear o escribir"
+                  autoComplete="off"
+                />
+                <button type="button" className="btn btn--outline" onClick={() => setScanOpen(true)}>
+                  Escanear
+                </button>
+              </div>
+            </label>
+            <label>
+              Descripción (opcional)
+              <textarea
+                value={form.description}
+                onChange={(event) => patch({ description: event.target.value })}
+                rows={3}
+                placeholder="Tela, temporada o detalle para la tienda"
+              />
+            </label>
+          </>
+        ) : null}
+
+        {step === 2 ? (
+          <>
+            <label>
+              Precio de venta (S/)
               <input
                 type="number"
                 min="0"
-                value={form.fillStock}
-                onChange={(event) => patch({ fillStock: event.target.value })}
-                placeholder="Cantidad"
+                step="0.01"
+                inputMode="decimal"
+                value={form.price}
+                onChange={(event) => patch({ price: event.target.value })}
+                placeholder="0.00"
+                required
               />
-              <button
-                type="button"
-                className="btn btn--outline"
-                onClick={() => {
-                  const next: Record<string, string> = { ...stocks }
-                  for (const variant of preview.variants) {
-                    next[variantOptionKey(variant.options)] = form.fillStock
-                  }
-                  setStocks(next)
-                }}
-              >
-                Poner en todas
-              </button>
-            </div>
-          </header>
+            </label>
+            <label>
+              Precio de oferta (opcional)
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                value={form.promotionalPrice}
+                onChange={(event) => patch({ promotionalPrice: event.target.value })}
+                placeholder="Si no hay oferta, déjalo vacío"
+              />
+            </label>
+            <label className={`admin-pin${form.pin ? " is-on" : ""}`}>
+              <span className="admin-pin__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 17v5" />
+                  <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16h14v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
+                </svg>
+              </span>
+              <span className="admin-pin__copy">
+                <strong>Destacar en el inicio</strong>
+                <em>Sale primero en la portada de la tienda.</em>
+              </span>
+              <input type="checkbox" checked={form.pin} onChange={(event) => patch({ pin: event.target.checked })} />
+              <span className="admin-pin__switch" aria-hidden="true" />
+            </label>
+          </>
+        ) : null}
 
-          <div className="admin-stock-matrix__actions">
-            <button type="button" className="btn btn--outline" onClick={() => setColors((current) => [...current, ""])}>
-              + Color
-            </button>
-            <button type="button" className="btn btn--outline" onClick={() => setSizes((current) => [...current, ""])}>
-              + Talla
-            </button>
-          </div>
-
-          <div className="admin-table-wrapper">
-            <table className="admin-table admin-stock-table">
-              <thead>
-                <tr>
-                  <th>Color / talla</th>
-                  {sizes.map((size, index) => (
-                    <th key={`size-${index}`}>
-                      <div className="admin-stock-head">
-                        <input
-                          value={size}
-                          onChange={(event) => changeSize(index, event.target.value)}
-                          placeholder="Talla"
-                          aria-label={`Talla ${index + 1}`}
-                        />
-                        <button type="button" aria-label="Quitar talla" onClick={() => removeSize(index)}>
-                          ×
-                        </button>
-                      </div>
-                    </th>
+        {step === 3 ? (
+          <section className="admin-create__stock">
+            <div>
+              <h3>Tallas</h3>
+              <div className="admin-create__chips">
+                {SIZE_PRESETS.map((size) => {
+                  const on = namedSizes.some((item) => item.toLowerCase() === size.toLowerCase())
+                  return (
+                    <button key={size} type="button" className={on ? "is-on" : ""} onClick={() => toggleSize(size)}>
+                      {size}
+                    </button>
+                  )
+                })}
+              </div>
+              <div className="admin-create__add">
+                <input
+                  value={sizeDraft}
+                  onChange={(event) => setSizeDraft(event.target.value)}
+                  placeholder="Otra talla"
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault()
+                      addNamed("size", sizeDraft)
+                    }
+                  }}
+                />
+                <button type="button" className="btn btn--outline" onClick={() => addNamed("size", sizeDraft)}>
+                  Agregar
+                </button>
+              </div>
+              {namedSizes.length > 0 ? (
+                <ul className="admin-create__tags">
+                  {namedSizes.map((size) => (
+                    <li key={`size-${size}`}>
+                      {size}
+                      <button type="button" aria-label={`Quitar talla ${size}`} onClick={() => removeSize(sizes.findIndex((item) => item.trim() === size))}>
+                        ×
+                      </button>
+                    </li>
                   ))}
-                  {namedColors.length > 0 && namedSizes.length > 0 && <th>Total</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {colors.length === 0 ? (
-                  <tr>
-                    <td colSpan={Math.max(2, sizes.length + 1)}>
-                      <p className="admin-form__hint">Pulsa + Color y + Talla para armar la tabla.</p>
-                    </td>
-                  </tr>
-                ) : (
-                  colors.map((color, colorIndex) => {
-                    const rowTotal = sizeColumns.reduce((sum, size) => {
-                      const raw = stockValue(color.trim() || null, size)
-                      const amount = raw === "" ? 0 : Number(raw)
-                      return sum + (Number.isFinite(amount) ? amount : 0)
-                    }, 0)
+                </ul>
+              ) : null}
+            </div>
+
+            <div>
+              <h3>Colores</h3>
+              <div className="admin-create__add">
+                <input
+                  value={colorDraft}
+                  onChange={(event) => setColorDraft(event.target.value)}
+                  placeholder="Ej. Rosa, blanco, azul"
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault()
+                      addNamed("color", colorDraft)
+                    }
+                  }}
+                />
+                <button type="button" className="btn btn--outline" onClick={() => addNamed("color", colorDraft)}>
+                  Agregar color
+                </button>
+              </div>
+              {namedColors.length > 0 ? (
+                <ul className="admin-create__tags">
+                  {namedColors.map((color, index) => (
+                    <li key={`color-${color}`}>
+                      {color}
+                      <button type="button" aria-label={`Quitar color ${color}`} onClick={() => removeColor(index)}>
+                        ×
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="admin-form__hint">Si no hay colores, pon al menos una talla.</p>
+              )}
+            </div>
+
+            <div className="admin-create__qty">
+              <h3>Cantidad de cada una</h3>
+              <p className="admin-form__hint">
+                {preview.variants.length} combinaciones · {totalUnits} unidades en total
+              </p>
+              <div className="admin-stock-matrix__fill">
+                <input
+                  type="number"
+                  min="0"
+                  inputMode="numeric"
+                  value={form.fillStock}
+                  onChange={(event) => patch({ fillStock: event.target.value })}
+                  placeholder="Ej. 5"
+                />
+                <button
+                  type="button"
+                  className="btn btn--outline"
+                  onClick={() => {
+                    const next: Record<string, string> = { ...stocks }
+                    for (const variant of preview.variants) {
+                      next[variantOptionKey(variant.options)] = form.fillStock
+                    }
+                    setStocks(next)
+                  }}
+                >
+                  Poner en todas
+                </button>
+              </div>
+              {preview.variants.length === 0 ? (
+                <p className="admin-form__hint">Elige una talla o un color para cargar el stock.</p>
+              ) : (
+                <ul className="admin-create__combos">
+                  {preview.variants.map((variant) => {
+                    const color = variant.options.find((item) => item.name === "Color")?.title ?? null
+                    const size = variant.options.find((item) => item.name === "Tamaño")?.title ?? null
+                    const label = [color, size].filter(Boolean).join(" · ")
                     return (
-                      <tr key={`color-${colorIndex}`}>
-                        <th>
-                          <div className="admin-stock-head">
-                            <input
-                              value={color}
-                              onChange={(event) => changeColor(colorIndex, event.target.value)}
-                              placeholder="Color"
-                              aria-label={`Color ${colorIndex + 1}`}
-                            />
-                            <button type="button" aria-label="Quitar color" onClick={() => removeColor(colorIndex)}>
-                              ×
-                            </button>
-                          </div>
-                        </th>
-                        {sizes.map((size, sizeIndex) => {
-                          const colorName = color.trim() || null
-                          const sizeName = size.trim() || null
-                          const ready = Boolean(colorName && sizeName)
-                          return (
-                            <td key={`cell-${colorIndex}-${sizeIndex}`}>
-                              <input
-                                type="number"
-                                min="0"
-                                disabled={!ready}
-                                value={ready ? stockValue(colorName, sizeName) : ""}
-                                onChange={(event) => setStockValue(colorName, sizeName, event.target.value)}
-                                aria-label={`Stock ${color} ${size}`}
-                              />
-                            </td>
-                          )
-                        })}
-                        {namedColors.length > 0 && namedSizes.length > 0 && <td>{color.trim() ? rowTotal : "—"}</td>}
-                      </tr>
+                      <li key={variantOptionKey(variant.options)}>
+                        <span>{label || "Unidad"}</span>
+                        <input
+                          type="number"
+                          min="0"
+                          inputMode="numeric"
+                          value={stockValue(color, size)}
+                          onChange={(event) => setStockValue(color, size, event.target.value)}
+                          aria-label={`Stock ${label}`}
+                        />
+                      </li>
                     )
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
+                  })}
+                </ul>
+              )}
+            </div>
+          </section>
+        ) : null}
 
-        <label className={`admin-pin${form.pin ? " is-on" : ""}`}>
-          <span className="admin-pin__icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 17v5" />
-              <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16h14v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
-            </svg>
-          </span>
-          <span className="admin-pin__copy">
-            <strong>Destacar en el inicio</strong>
-            <em>La prenda aparece primero en la portada de la tienda.</em>
-          </span>
-          <input
-            type="checkbox"
-            checked={form.pin}
-            onChange={(event) => patch({ pin: event.target.checked })}
-          />
-          <span className="admin-pin__switch" aria-hidden="true" />
-        </label>
-
-        <button className="btn" type="submit" disabled={saving}>
-          {saving ? "Guardando…" : "Guardar producto"}
-        </button>
+        <div className="admin-create__foot">
+          <button type="button" className="btn btn--outline" onClick={goBack}>
+            {step === 0 ? "Regresar" : "Atrás"}
+          </button>
+          {step < STEPS.length - 1 ? (
+            <button type="button" className="btn" onClick={() => void goNext()}>
+              Siguiente
+            </button>
+          ) : (
+            <button className="btn" type="submit" disabled={saving}>
+              {saving ? "Guardando…" : existing ? "Guardar cambios" : "Crear producto"}
+            </button>
+          )}
+        </div>
       </form>
       {scanOpen ? (
         <AdminBarcodeScan

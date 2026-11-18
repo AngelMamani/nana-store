@@ -54,14 +54,8 @@ export function AdminProductsPage() {
     }
   }
 
-  async function createProduct() {
-    const ok = await confirmAdminAction({
-      title: "Nuevo producto",
-      text: "Vas a crear una prenda nueva en el catálogo.",
-      confirmText: "Continuar",
-      icon: "question",
-    })
-    if (ok) navigate("/admin/productos/nuevo")
+  function createProduct() {
+    navigate("/admin/productos/nuevo")
   }
 
   async function editProduct(product: Product) {
@@ -101,7 +95,7 @@ export function AdminProductsPage() {
             {categoryId !== "all" ? " en esta categoría" : ""} · {PAGE_SIZE} por página
           </p>
         </div>
-        <button type="button" className="btn" onClick={() => void createProduct()}>
+        <button type="button" className="btn" onClick={createProduct}>
           <Glyph name="plus" />
           Nuevo producto
         </button>
