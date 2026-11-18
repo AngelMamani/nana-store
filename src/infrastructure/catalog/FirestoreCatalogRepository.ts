@@ -10,6 +10,7 @@ import {
   type Unsubscribe,
 } from "firebase/firestore"
 import type { Category, Product, StoreProfile, StoreVideoKey, StoreVideoSlot } from "../../domain/catalog/entities.ts"
+import { normalizeProductCost } from "../../domain/catalog/profit.ts"
 import { normalizeStoreProfile } from "../../domain/catalog/store-media.ts"
 import type {
   CatalogWriter,
@@ -178,7 +179,7 @@ export class FirestoreCatalogRepository
         this.#apply({ store: this.#store, categories, products: this.#products })
       }),
       onSnapshot(collection(firebaseDb, "catalog_products"), (snapshot) => {
-        const products = snapshot.docs.map((item) => item.data() as Product)
+        const products = snapshot.docs.map((item) => normalizeProductCost(item.data() as Product))
         this.#apply({ store: this.#store, categories: this.#categories, products })
       }),
     ]
@@ -187,7 +188,9 @@ export class FirestoreCatalogRepository
   #apply(snapshot: CatalogSnapshot): void {
     this.#store = normalizeStoreProfile(snapshot.store)
     this.#categories = [...snapshot.categories].sort((left, right) => left.order - right.order)
-    this.#products = [...snapshot.products].sort((left, right) => left.rank - right.rank)
+    this.#products = [...snapshot.products]
+      .map((product) => normalizeProductCost(product))
+      .sort((left, right) => left.rank - right.rank)
     this.#productsById = new Map(this.#products.map((product) => [product.id, product]))
     this.#categoriesBySlug = new Map(this.#categories.map((category) => [category.slug, category]))
     this.#notify()

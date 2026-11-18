@@ -1,17 +1,28 @@
 import { useMemo, useRef, useState, type FormEvent } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import type { Product } from "../../domain/catalog/entities.ts"
+import { formatPen } from "../../domain/catalog/money.ts"
+import {
+  TARGET_PROFIT_MARGIN,
+  parseMoney,
+  profitAmount,
+  profitMarginPercent,
+  recommendedSalePrice,
+} from "../../domain/catalog/profit.ts"
 import { extractColors, extractSizes, rebuildVariations, variantOptionKey } from "../../domain/catalog/variants.ts"
 import { container } from "../../infrastructure/composition/container.ts"
 import { useCatalog } from "../catalog/catalog-context.ts"
 import { AdminBarcodeScan } from "./AdminBarcodeScan.tsx"
 import { showAdminError, showAdminSuccess } from "./admin-alerts.ts"
 
+const MAX_VIDEO_MB = 80
+
 type FormState = {
   name: string
   code: string
   description: string
   categoryId: string
+  cost: string
   price: string
   promotionalPrice: string
   pin: boolean
@@ -26,6 +37,7 @@ function toForm(product: Product | null): FormState {
       code: "",
       description: "",
       categoryId: first?.id ?? "",
+      cost: "",
       price: "",
       promotionalPrice: "",
       pin: false,
@@ -37,6 +49,7 @@ function toForm(product: Product | null): FormState {
     code: product.code ?? "",
     description: product.description ?? "",
     categoryId: product.categoryId ?? "",
+    cost: product.cost === null || product.cost === undefined ? "" : String(product.cost),
     price: String(product.price),
     promotionalPrice: product.promotionalPrice === null ? "" : String(product.promotionalPrice),
     pin: product.pin,
@@ -67,10 +80,13 @@ export function AdminProductFormPage() {
   const [colors, setColors] = useState(() => extractColors(existing?.variations ?? []))
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(0)
+  const [videoProgress, setVideoProgress] = useState<number | null>(null)
   const [scanOpen, setScanOpen] = useState(false)
   const [gallery, setGallery] = useState<string[]>(() => uniqueGallery(existing))
+  const [video, setVideo] = useState<string | null>(() => existing?.video ?? null)
   const cameraInput = useRef<HTMLInputElement>(null)
   const galleryInput = useRef<HTMLInputElement>(null)
+  const videoInput = useRef<HTMLInputElement>(null)
   const [stocks, setStocks] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {}
     for (const variant of existing?.variants ?? []) {
@@ -156,6 +172,27 @@ export function AdminProductFormPage() {
     return sum + (Number.isFinite(amount) ? amount : 0)
   }, 0)
 
+  async function onUploadVideo(file: File | undefined) {
+    if (!file) return
+    if (file.size > MAX_VIDEO_MB * 1024 * 1024) {
+      await showAdminError("Archivo muy pesado", `Usa un video de ${MAX_VIDEO_MB} MB o menos.`)
+      return
+    }
+    setVideoProgress(0)
+    try {
+      const url = await container.storage.uploadFileWithProgress(
+        file,
+        `products/${id}/video-${Date.now()}-${file.name}`,
+        (percent) => setVideoProgress(percent),
+      )
+      setVideo(url)
+      setVideoProgress(100)
+    } catch {
+      setVideoProgress(null)
+      await showAdminError("No se pudo subir el video", "Revisa Firebase Storage y el formato (MP4, WebM o MOV).")
+    }
+  }
+
   async function onUpload(selected: File[]) {
     if (!selected.length) return
     setUploading(selected.length)
@@ -186,6 +223,7 @@ export function AdminProductFormPage() {
       return
     }
     const promotionalPrice = form.promotionalPrice === "" ? null : Number(form.promotionalPrice)
+    const cost = parseMoney(form.cost)
     const product: Product = {
       id,
       name: form.name.trim(),
@@ -194,8 +232,10 @@ export function AdminProductFormPage() {
       categoryId: form.categoryId || null,
       image: gallery[0] ?? null,
       gallery,
+      video,
       price,
       promotionalPrice: promotionalPrice !== null && Number.isFinite(promotionalPrice) ? promotionalPrice : null,
+      cost,
       pin: form.pin,
       rank: existing?.rank ?? container.listProducts().length,
       createdAt: existing?.createdAt ?? new Date().toISOString(),
@@ -283,7 +323,29 @@ export function AdminProductFormPage() {
         </label>
         <div className="admin-form__row">
           <label>
-            Precio (S/)
+            Costo (S/)
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.cost}
+              onChange={(event) => {
+                const nextCost = event.target.value
+                const cost = parseMoney(nextCost)
+                const suggested = cost !== null ? recommendedSalePrice(cost) : 0
+                const previousSuggested = parseMoney(form.cost) !== null ? recommendedSalePrice(parseMoney(form.cost) ?? 0) : 0
+                const currentPrice = parseMoney(form.price)
+                const keepSuggestion = form.price === "" || currentPrice === previousSuggested
+                patch({
+                  cost: nextCost,
+                  ...(keepSuggestion && suggested > 0 ? { price: String(suggested) } : {}),
+                })
+              }}
+              placeholder="Lo que te costó"
+            />
+          </label>
+          <label>
+            Precio de venta (S/)
             <input
               type="number"
               min="0"
@@ -305,6 +367,16 @@ export function AdminProductFormPage() {
             />
           </label>
         </div>
+        <ProfitHint
+          cost={parseMoney(form.cost)}
+          sale={(() => {
+            const promo = parseMoney(form.promotionalPrice)
+            const list = parseMoney(form.price)
+            if (promo !== null && list !== null && promo < list) return promo
+            return list
+          })()}
+          onApply={(price) => patch({ price: String(price) })}
+        />
         <fieldset className="admin-gallery">
           <legend>Fotos</legend>
           <p className="admin-form__hint">Puedes subir varias. La primera es la principal en la tienda.</p>
@@ -367,6 +439,44 @@ export function AdminProductFormPage() {
               ))}
             </ul>
           )}
+        </fieldset>
+
+        <fieldset className="admin-gallery">
+          <legend>Video</legend>
+          <p className="admin-form__hint">Se muestra en la ficha pública y en las tarjetas del catálogo. Máximo {MAX_VIDEO_MB} MB (MP4, WebM o MOV).</p>
+          <input
+            ref={videoInput}
+            className="admin-gallery__file"
+            type="file"
+            accept="video/mp4,video/webm,video/quicktime"
+            disabled={videoProgress !== null && videoProgress < 100}
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              event.target.value = ""
+              void onUploadVideo(file)
+            }}
+          />
+          <div className="admin-gallery__pick">
+            <button
+              type="button"
+              className="btn btn--outline"
+              disabled={videoProgress !== null && videoProgress < 100}
+              onClick={() => videoInput.current?.click()}
+            >
+              {video ? "Cambiar video" : "Subir video"}
+            </button>
+            {video ? (
+              <button type="button" className="btn btn--outline" onClick={() => setVideo(null)}>
+                Quitar video
+              </button>
+            ) : null}
+          </div>
+          {videoProgress !== null && videoProgress < 100 ? (
+            <p className="admin-form__hint">Subiendo video {videoProgress}%</p>
+          ) : null}
+          {video ? (
+            <video className="admin-product-video" src={video} controls playsInline preload="metadata" />
+          ) : null}
         </fieldset>
 
         <section className="admin-stock-matrix">
@@ -508,7 +618,7 @@ export function AdminProductFormPage() {
           <span className="admin-pin__switch" aria-hidden="true" />
         </label>
 
-        <button className="btn" type="submit" disabled={saving}>
+        <button className="btn" type="submit" disabled={saving || (videoProgress !== null && videoProgress < 100)}>
           {saving ? "Guardando…" : "Guardar producto"}
         </button>
       </form>
@@ -521,6 +631,39 @@ export function AdminProductFormPage() {
           }}
         />
       ) : null}
+    </div>
+  )
+}
+
+function ProfitHint({
+  cost,
+  sale,
+  onApply,
+}: {
+  cost: number | null
+  sale: number | null
+  onApply: (price: number) => void
+}) {
+  const suggested = cost !== null ? recommendedSalePrice(cost) : 0
+  const profit = sale !== null ? profitAmount(sale, cost) : null
+  const margin = sale !== null ? profitMarginPercent(sale, cost) : null
+  const target = Math.round(TARGET_PROFIT_MARGIN * 100)
+
+  return (
+    <div className="admin-profit">
+      <p>
+        Recomendación: el {target}% del precio de venta es ganancia (costo × 2). Puedes cambiarlo.
+      </p>
+      {cost !== null && suggested > 0 ? (
+        <button type="button" className="btn btn--outline" onClick={() => onApply(suggested)}>
+          Usar sugerido {formatPen(suggested)}
+        </button>
+      ) : null}
+      <strong>
+        {profit === null || margin === null
+          ? "Escribe el costo para ver la ganancia."
+          : `Ganancia ${formatPen(profit)} (${margin}% del precio)`}
+      </strong>
     </div>
   )
 }

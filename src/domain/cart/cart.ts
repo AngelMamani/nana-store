@@ -11,6 +11,7 @@ export type CartLine = {
   image: string | null
   options: CartLineOption[]
   unitPrice: number
+  unitCost?: number | null
   quantity: number
 }
 

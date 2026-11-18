@@ -64,8 +64,10 @@ export type Product = {
   categoryId: string | null
   image: string | null
   gallery: string[]
+  video: string | null
   price: number
   promotionalPrice: number | null
+  cost: number | null
   pin: boolean
   rank: number
   createdAt: string | null

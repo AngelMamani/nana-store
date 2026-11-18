@@ -1,13 +1,17 @@
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react"
 import { formatPen } from "../../domain/catalog/money.ts"
+import { productCost } from "../../domain/catalog/profit.ts"
 import {
+  applyLineCosts,
   channelLabel,
   discountLabel,
   isCustomOrderLine,
   lineDiscount,
   lineGross,
   lineNet,
+  lineProfit,
   orderDiscountOf,
+  orderProfitOf,
   orderSubtotal,
   orderAdvance,
   orderBalance,
@@ -73,6 +77,18 @@ function formatDate(value: string) {
 
 function itemCount(order: StoreOrder) {
   return order.lines.reduce((sum, line) => sum + line.quantity, 0)
+}
+
+function orderWithCosts(order: StoreOrder, products: { id: string; cost: number | null }[]) {
+  const costs = new Map(products.map((product) => [product.id, productCost(product)]))
+  return { ...order, lines: applyLineCosts(order.lines, (id) => costs.get(id) ?? null) }
+}
+
+function profitLabel(order: StoreOrder, products: { id: string; cost: number | null }[]) {
+  const profit = orderProfitOf(orderWithCosts(order, products))
+  if (profit.missing > 0 && profit.cost === 0) return "—"
+  if (profit.missing > 0) return `${formatPen(profit.amount)}*`
+  return formatPen(profit.amount)
 }
 
 function matchesQuery(order: StoreOrder, needle: string) {
@@ -162,6 +178,7 @@ export function AdminOrdersPage() {
     let atendido = 0
     let cancelado = 0
     let sales = 0
+    let profit = 0
     for (const order of orders) {
       if (order.status === "reservado") reservado += 1
       const soldAt = orderSoldAt(order)
@@ -171,11 +188,12 @@ export function AdminOrdersPage() {
       if (order.status === "atendido" && inPeriod) {
         atendido += 1
         sales += order.total
+        profit += orderProfitOf(orderWithCosts(order, products)).amount
       }
       if (order.status === "cancelado" && inPeriod) cancelado += 1
     }
-    return { nuevo, reservado, atendido, cancelado, sales, total: orders.length }
-  }, [orders, range])
+    return { nuevo, reservado, atendido, cancelado, sales, profit, total: orders.length }
+  }, [orders, range, products])
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase()
@@ -328,7 +346,7 @@ export function AdminOrdersPage() {
           <p className="admin-kicker">Ventas</p>
           <h1>Pedidos</h1>
           <p>
-            {periodLabel}: {stats.atendido} ventas cobradas ({formatPen(stats.sales)}). {stats.reservado} reservados
+            {periodLabel}: {stats.atendido} ventas cobradas ({formatPen(stats.sales)}, ganancia {formatPen(stats.profit)}). {stats.reservado} reservados
             siguen pendientes aunque cambie el día.
           </p>
         </div>
@@ -393,6 +411,15 @@ export function AdminOrdersPage() {
           hint={`cobrado ${whenHint}`}
           active={filter === "all"}
           onClick={() => applyFilter("all")}
+        />
+        <KpiCard
+          tone="mint"
+          icon="gain"
+          label="Ganancia"
+          value={formatPen(stats.profit)}
+          hint={`en ventas ${whenHint}`}
+          active={filter === "atendido"}
+          onClick={() => applyFilter("atendido")}
         />
       </section>
 
@@ -510,6 +537,8 @@ export function AdminOrdersPage() {
             <OrderCard
               key={order.id}
               order={order}
+              priced={orderWithCosts(order, products)}
+              profit={profitLabel(order, products)}
               storeWhatsapp={store.whatsapp}
               open={openId === order.id}
               busy={busyId === order.id}
@@ -535,6 +564,7 @@ export function AdminOrdersPage() {
                   <th>Fecha</th>
                   <th>Prendas</th>
                   <th>Total</th>
+                  <th>Ganancia</th>
                   <th>Estado</th>
                   <th></th>
                 </tr>
@@ -551,6 +581,7 @@ export function AdminOrdersPage() {
                         <td>{formatDate(order.createdAt)}</td>
                         <td>{itemCount(order)}</td>
                         <td>{formatPen(order.total)}</td>
+                        <td>{profitLabel(order, products)}</td>
                         <td>
                           <StatusControls
                             status={order.status}
@@ -608,8 +639,12 @@ export function AdminOrdersPage() {
                       </tr>
                       {open && (
                         <tr className="admin-inventory-detail-row">
-                          <td colSpan={6}>
-                            <OrderDetail order={order} busy={busyId === order.id} onAdvance={() => void setAdvance(order)} />
+                          <td colSpan={7}>
+                            <OrderDetail
+                              order={orderWithCosts(order, products)}
+                              busy={busyId === order.id}
+                              onAdvance={() => void setAdvance(order)}
+                            />
                           </td>
                         </tr>
                       )}
@@ -657,6 +692,8 @@ export function AdminOrdersPage() {
 
 function OrderCard({
   order,
+  priced,
+  profit,
   storeWhatsapp,
   open,
   busy,
@@ -668,6 +705,8 @@ function OrderCard({
   onRemove,
 }: {
   order: StoreOrder
+  priced: StoreOrder
+  profit: string
   storeWhatsapp: string
   open: boolean
   busy: boolean
@@ -689,10 +728,11 @@ function OrderCard({
       </div>
       <div className="admin-order-card__meta">
         <strong>{formatPen(order.total)}</strong>
+        <span>Ganancia {profit}</span>
         <span>{itemCount(order)} prendas</span>
       </div>
       <StatusControls status={order.status} busy={busy} onStatus={onStatus} />
-      {open && <OrderDetail order={order} busy={busy} onAdvance={onAdvance} />}
+      {open && <OrderDetail order={priced} busy={busy} onAdvance={onAdvance} />}
       <div className="admin-products-actions">
         <button type="button" title={open ? "Ocultar detalle" : "Ver detalle"} onClick={onToggle}>
           <Glyph name={open ? "up" : "down"} />
@@ -757,6 +797,7 @@ function OrderDetail({
   const method = payMethodOf(order)
   const advance = orderAdvance(order)
   const balance = orderBalance(order)
+  const profit = orderProfitOf(order)
   return (
     <div className="admin-order-detail">
       <ul className="admin-order-lines">
@@ -774,12 +815,19 @@ function OrderDetail({
               <span>
                 {lineDiscount(line) > 0 ? <s>{formatPen(lineGross(line))}</s> : null}
                 {formatPen(lineNet(line))}
+                {lineProfit(line) !== null ? <em>Ganancia {formatPen(lineProfit(line)!)}</em> : null}
                 {lineDiscount(line) > 0 ? <em>Dcto {discountLabel(line.discountKind, line.discountValue)}</em> : null}
               </span>
             </li>
           )
         })}
       </ul>
+      {profit.missing === 0 || profit.cost > 0 ? (
+        <p className="admin-order-pay">
+          <strong>Ganancia {formatPen(profit.amount)}</strong>
+          {profit.missing > 0 ? <span>Falta costo en {profit.missing} ítems</span> : null}
+        </p>
+      ) : null}
       {orderDiscountOf(order) > 0 ? (
         <p className="admin-order-pay">
           <strong>Descuento {discountLabel(order.discountKind, order.discountValue)}</strong>
@@ -922,6 +970,12 @@ function Glyph({ name }: { name: string }) {
       <>
         <path d="M12 17v5" />
         <path d="M9 10.5a3 3 0 1 1 6 0c0 2.2-3 5.5-3 5.5s-3-3.3-3-5.5Z" />
+      </>
+    ),
+    gain: (
+      <>
+        <path d="M12 3v18" />
+        <path d="M16 8H9.5a2.5 2.5 0 0 0 0 5H14a2.5 2.5 0 0 1 0 5H8" />
       </>
     ),
     ok: <path d="M20 6 9 17l-5-5" />,

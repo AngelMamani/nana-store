@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { formatPen } from "../../domain/catalog/money.ts"
+import { parseMoney, productCost, recommendedSalePrice } from "../../domain/catalog/profit.ts"
 import {
   defaultSelection,
   isOptionAvailable,
@@ -14,8 +15,10 @@ import {
   lineDiscount,
   lineGross,
   lineNet,
+  lineProfit,
   orderDiscountOf,
   orderPayableTotal,
+  orderProfitOf,
   orderPhone,
   orderSubtotal,
   payMethodOf,
@@ -106,6 +109,7 @@ export function AdminStoreSaleForm({
   const [payMethod, setPayMethod] = useState<PayMethod>(order ? (payMethodOf(order) ?? "efectivo") : "efectivo")
   const [advance, setAdvance] = useState(order && order.advance != null ? String(order.advance) : "")
   const [customName, setCustomName] = useState("")
+  const [customCost, setCustomCost] = useState("")
   const [customPrice, setCustomPrice] = useState("")
   const [discountKind, setDiscountKind] = useState<DiscountKind | null>(order?.discountKind ?? null)
   const [discountValue, setDiscountValue] = useState(order?.discountValue ? String(order.discountValue) : "")
@@ -132,6 +136,7 @@ export function AdminStoreSaleForm({
   const subtotal = orderSubtotal(lines)
   const totalOff = orderDiscountOf(saleDiscounts)
   const total = orderPayableTotal(saleDiscounts)
+  const saleProfit = orderProfitOf({ ...saleDiscounts, total })
   const advanceAmount = Math.min(Math.max(0, Number(advance) || 0), total)
   const balance = Math.max(0, total - advanceAmount)
 
@@ -140,6 +145,7 @@ export function AdminStoreSaleForm({
     const options = Object.entries(chosen).map(([name, title]) => ({ name, title }))
     const key = lineKey(product.id, options)
     const unitPrice = selectedUnitPrice(product, chosen)
+    const unitCost = productCost(product)
     setLines((current) => {
       const existing = current.find((line) => line.key === key)
       if (existing) {
@@ -153,6 +159,7 @@ export function AdminStoreSaleForm({
           name: product.name,
           quantity: 1,
           unitPrice,
+          unitCost,
           options,
         },
       ]
@@ -179,6 +186,7 @@ export function AdminStoreSaleForm({
   function addCustom() {
     const name = customName.trim()
     const unitPrice = Number(customPrice)
+    const unitCost = parseMoney(customCost)
     const quantity = 1
     if (!name || !Number.isFinite(unitPrice) || unitPrice < 0) return
     const productId = `custom:${crypto.randomUUID()}`
@@ -190,11 +198,13 @@ export function AdminStoreSaleForm({
         name,
         quantity,
         unitPrice,
+        unitCost,
         options: [],
         custom: true,
       },
     ])
     setCustomName("")
+    setCustomCost("")
     setCustomPrice("")
   }
 
@@ -437,6 +447,7 @@ export function AdminStoreSaleForm({
                     <span>
                       {lineDiscount(line) > 0 ? <s>{formatPen(lineGross(line))}</s> : null}
                       {formatPen(lineNet(line))}
+                      {lineProfit(line) !== null ? <em>Ganancia {formatPen(lineProfit(line)!)}</em> : null}
                     </span>
                     <div className="admin-stock-stepper">
                       <button
@@ -581,9 +592,27 @@ export function AdminStoreSaleForm({
                   type="number"
                   min="0"
                   step="0.01"
+                  value={customCost}
+                  onChange={(event) => {
+                    const next = event.target.value
+                    const cost = parseMoney(next)
+                    const suggested = cost !== null ? recommendedSalePrice(cost) : 0
+                    const previous = parseMoney(customCost) !== null ? recommendedSalePrice(parseMoney(customCost) ?? 0) : 0
+                    const current = parseMoney(customPrice)
+                    setCustomCost(next)
+                    if (suggested > 0 && (customPrice === "" || current === previous)) {
+                      setCustomPrice(String(suggested))
+                    }
+                  }}
+                  placeholder="Costo"
+                />
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
                   value={customPrice}
                   onChange={(event) => setCustomPrice(event.target.value)}
-                  placeholder="S/"
+                  placeholder="Venta S/"
                 />
                 <button type="button" className="btn btn--outline" onClick={addCustom} disabled={!customName.trim()}>
                   +
@@ -613,6 +642,13 @@ export function AdminStoreSaleForm({
                   {totalOff > 0 || subtotal !== total ? <small>Subtotal {formatPen(subtotal)}</small> : null}
                   {totalOff > 0 ? <small>Descuento −{formatPen(totalOff)}</small> : null}
                   <strong>{formatPen(total)}</strong>
+                  {lines.length > 0 ? (
+                    <small>
+                      {saleProfit.missing > 0
+                        ? `Ganancia ${formatPen(saleProfit.amount)} · falta costo en ${saleProfit.missing}`
+                        : `Ganancia ${formatPen(saleProfit.amount)}`}
+                    </small>
+                  ) : null}
                   {paymentMode === "contraEntrega" ? (
                     <small>
                       Adelanto {formatPen(advanceAmount)} · Saldo {formatPen(balance)}

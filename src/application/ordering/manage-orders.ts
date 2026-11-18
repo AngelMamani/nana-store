@@ -78,6 +78,7 @@ export async function recordWhatsappOrder(
       name: line.name,
       quantity: line.quantity,
       unitPrice: line.unitPrice,
+      unitCost: line.unitCost ?? null,
       options: line.options,
     })),
   })

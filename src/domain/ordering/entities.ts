@@ -11,6 +11,7 @@ export type OrderLine = {
   name: string
   quantity: number
   unitPrice: number
+  unitCost?: number | null
   options: { name: string; title: string }[]
   custom?: boolean
   discountKind?: DiscountKind | null
@@ -113,6 +114,51 @@ export function lineNet(line: OrderLine) {
   return money2(lineGross(line) - lineDiscount(line))
 }
 
+export function lineUnitCostOf(line: OrderLine) {
+  if (line.unitCost === null || line.unitCost === undefined) return null
+  const amount = Number(line.unitCost)
+  if (!Number.isFinite(amount) || amount < 0) return null
+  return money2(amount)
+}
+
+export function lineCostTotal(line: OrderLine) {
+  const unit = lineUnitCostOf(line)
+  if (unit === null) return null
+  return money2(unit * line.quantity)
+}
+
+export function lineProfit(line: OrderLine) {
+  const cost = lineCostTotal(line)
+  if (cost === null) return null
+  return money2(lineNet(line) - cost)
+}
+
+export function orderCostTotal(lines: OrderLine[]) {
+  let amount = 0
+  let missing = 0
+  for (const line of lines) {
+    const cost = lineCostTotal(line)
+    if (cost === null) missing += 1
+    else amount += cost
+  }
+  return { amount: money2(amount), missing }
+}
+
+export function orderProfitOf(order: {
+  lines: OrderLine[]
+  discountKind?: DiscountKind | null
+  discountValue?: number
+  total?: number
+}) {
+  const costs = orderCostTotal(order.lines)
+  const revenue = Number.isFinite(order.total) ? Number(order.total) : orderPayableTotal(order)
+  return {
+    amount: money2(revenue - costs.amount),
+    missing: costs.missing,
+    cost: costs.amount,
+  }
+}
+
 export function orderSubtotal(lines: OrderLine[]) {
   return money2(lines.reduce((sum, line) => sum + lineNet(line), 0))
 }
@@ -155,6 +201,16 @@ export function orderSoldAt(order: StoreOrder) {
 
 export function isCustomOrderLine(line: OrderLine) {
   return line.custom === true || line.productId.startsWith("custom:")
+}
+
+export function applyLineCosts(lines: OrderLine[], costOf: (productId: string) => number | null): OrderLine[] {
+  return lines.map((line) => {
+    if (lineUnitCostOf(line) !== null) return line
+    if (isCustomOrderLine(line)) return line
+    const cost = costOf(line.productId)
+    if (cost === null) return line
+    return { ...line, unitCost: cost }
+  })
 }
 
 export function orderStatusLabel(status: OrderStatus, audience: "admin" | "customer" = "admin") {

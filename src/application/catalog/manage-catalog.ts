@@ -11,6 +11,7 @@ export function productMediaUrls(product: Product): string[] {
     ...new Set(
       [
         product.image,
+        product.video,
         ...product.gallery,
         ...product.variants.map((variant) => variant.image),
         ...product.variations.flatMap((variation) => variation.options.map((option) => option.image)),

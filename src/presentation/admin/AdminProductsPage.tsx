@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react"
 import { useNavigate } from "react-router-dom"
 import { formatPen } from "../../domain/catalog/money.ts"
+import { productProfit } from "../../domain/catalog/profit.ts"
 import { summarizePrice } from "../../domain/catalog/pricing.ts"
 import { searchProducts } from "../../domain/catalog/search.ts"
 import { productStock } from "../../domain/catalog/stock.ts"
@@ -14,6 +15,12 @@ const VIEW_KEY = "nana-admin-products-view"
 const PAGE_SIZE = 10
 
 type ProductView = "list" | "cards"
+
+function gainLabel(product: Product) {
+  const { profit, margin } = productProfit(product)
+  if (profit === null || margin === null) return "—"
+  return `${formatPen(profit)} · ${margin}%`
+}
 
 function readView(): ProductView {
   try {
@@ -170,6 +177,8 @@ export function AdminProductsPage() {
                   <th>Producto</th>
                   <th>Categoría</th>
                   <th>Precio</th>
+                  <th>Costo</th>
+                  <th>Ganancia</th>
                   <th>Stock</th>
                   <th>Acciones</th>
                 </tr>
@@ -196,6 +205,8 @@ export function AdminProductsPage() {
                         {price.from ? "Desde " : ""}
                         {formatPen(price.amount)}
                       </td>
+                      <td data-label="Costo">{product.cost == null ? "—" : formatPen(product.cost)}</td>
+                      <td data-label="Ganancia">{gainLabel(product)}</td>
                       <td data-label="Stock">
                         <StockBadge stock={stock} />
                       </td>
@@ -277,12 +288,14 @@ function ProductCard({
         {product.image ? <img src={product.image} alt="" /> : <span className="admin-product-card__ph"><Glyph name="shirt" /></span>}
         {product.pin ? <em className="is-pin">Destacado</em> : null}
         {price.offer ? <em>Oferta</em> : null}
+        {product.video ? <em className="is-video">Video</em> : null}
       </div>
       <div className="admin-product-card__body">
         <div className="admin-product-card__tags">
           <p>{categoryName ?? "Sin categoría"}</p>
           {product.pin ? <i>Destacado</i> : null}
           {price.offer ? <i className="is-offer">Oferta</i> : null}
+          {product.video ? <i>Video</i> : null}
         </div>
         <h2>{product.name}</h2>
         {product.code ? <span className="admin-product-card__sku">{product.code}</span> : null}
@@ -293,6 +306,9 @@ function ProductCard({
           </strong>
           {price.compareAt ? <s>{formatPen(price.compareAt)}</s> : null}
         </div>
+        <p className="admin-product-card__gain">
+          {product.cost == null ? "Sin costo" : `Costo ${formatPen(product.cost)} · ${gainLabel(product)}`}
+        </p>
         <div className="admin-product-card__meta">
           <StockBadge stock={stock} />
           <div

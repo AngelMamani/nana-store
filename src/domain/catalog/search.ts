@@ -1,5 +1,6 @@
 import type { Product } from "./entities.ts"
 import { summarizePrice } from "./pricing.ts"
+import { productStock } from "./stock.ts"
 
 export type ProductSort = "relevance" | "az" | "za" | "price-asc" | "price-desc" | "newest"
 
@@ -52,4 +53,35 @@ export function sortProducts(products: Product[], sort: ProductSort): Product[] 
         (left, right) => byPin(left, right) || left.rank - right.rank || byDate(left, right),
       )
   }
+}
+
+export function suggestRelatedProducts(products: Product[], current: Product, limit = 8): Product[] {
+  const currentPrice = summarizePrice(current).amount
+  const tokens = fold(current.name)
+    .split(/\s+/)
+    .filter((token) => token.length > 2)
+
+  return products
+    .filter((product) => product.id !== current.id)
+    .filter((product) => {
+      const stock = productStock(product)
+      return stock === null || stock > 0
+    })
+    .map((product) => {
+      let score = 0
+      if (current.categoryId && product.categoryId === current.categoryId) score += 80
+      if (product.pin) score += 16
+      const price = summarizePrice(product).amount
+      if (currentPrice > 0 && price > 0) {
+        const ratio = Math.abs(price - currentPrice) / currentPrice
+        if (ratio <= 0.35) score += 18
+        else if (ratio <= 0.7) score += 8
+      }
+      const name = fold(product.name)
+      if (tokens.some((token) => name.includes(token))) score += 12
+      return { product, score }
+    })
+    .sort((left, right) => right.score - left.score || left.product.rank - right.product.rank)
+    .slice(0, limit)
+    .map((item) => item.product)
 }

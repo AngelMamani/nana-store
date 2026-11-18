@@ -26,6 +26,7 @@ export function ProductCard({ product }: { product: Product }) {
       image: selectedImage(product, selection),
       options: Object.entries(selection).map(([name, title]) => ({ name, title })),
       unitPrice: selectedUnitPrice(product, selection),
+      unitCost: product.cost ?? null,
       quantity: 1,
     })
   }
@@ -36,7 +37,10 @@ export function ProductCard({ product }: { product: Product }) {
         <div className="product-card__media">
           {product.pin ? <span className="pin-badge">DESTACADO</span> : null}
           {price.offer && <span className="offer-badge">OFERTA</span>}
-          {product.image ? (
+          {product.video ? <span className="video-badge">VIDEO</span> : null}
+          {product.video ? (
+            <video src={product.video} muted loop playsInline autoPlay preload="metadata" poster={product.image ?? undefined} />
+          ) : product.image ? (
             <img src={product.image} alt="" />
           ) : (
             <span className="product-card__fallback">NaNa</span>

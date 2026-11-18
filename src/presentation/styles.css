@@ -994,7 +994,11 @@ main { min-width: 0; padding: 20px 20px 48px; }
   aspect-ratio: 1;
   background: #f3eef2;
 }
-.product-card__media img, .gallery__main img, .cart-lines img { width: 100%; height: 100%; object-fit: cover; }
+.product-card__media img,
+.product-card__media video,
+.gallery__main img,
+.gallery__main video,
+.cart-lines img { width: 100%; height: 100%; object-fit: cover; }
 .product-card h3 {
   font-size: 14px;
   line-height: 1.3;
@@ -1039,7 +1043,8 @@ main { min-width: 0; padding: 20px 20px 48px; }
   font-weight: 800;
 }
 .offer-badge,
-.pin-badge {
+.pin-badge,
+.video-badge {
   position: absolute;
   top: 8px;
   left: 8px;
@@ -1056,12 +1061,34 @@ main { min-width: 0; padding: 20px 20px 48px; }
   background: var(--pink-dark);
 }
 
+.video-badge {
+  top: auto;
+  bottom: 8px;
+  background: #2b2430;
+}
+
 .product-card__media:has(.pin-badge) .offer-badge {
   left: auto;
   right: 8px;
 }
 
 .product { display: flex; flex-direction: column; gap: 14px; }
+.product-related {
+  margin-top: 10px;
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+}
+.product-related header {
+  margin-bottom: 14px;
+}
+.product-related h2 {
+  margin: 0;
+}
+.product-related p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-weight: 600;
+}
 .product__layout { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr); gap: 28px; }
 .gallery__main {
   aspect-ratio: 1;
@@ -1081,7 +1108,22 @@ main { min-width: 0; padding: 20px 20px 48px; }
   cursor: pointer;
 }
 .gallery__thumbs button.is-active { border-color: var(--pink); }
-.gallery__thumbs img { width: 100%; height: 100%; object-fit: cover; }
+.gallery__thumbs img,
+.gallery__thumbs video { width: 100%; height: 100%; object-fit: cover; }
+.gallery__thumb-video {
+  position: relative;
+}
+.gallery__thumb-video em {
+  position: absolute;
+  inset: auto 4px 4px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #2b2430;
+  color: #fff;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+}
 .eyebrow { color: var(--pink-dark); font-weight: 800; font-size: 13px; text-transform: uppercase; }
 .product__info h1 { font-size: 28px; line-height: 1.2; margin-top: 4px; }
 .code { color: var(--muted); margin-top: 6px; }
@@ -3352,6 +3394,42 @@ legend { font-weight: 800; margin-bottom: 8px; }
   gap: 12px;
 }
 
+.admin-profit {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--pink, #f457a5) 8%, var(--admin-card, #fff));
+  border: 1px solid var(--admin-line, #ffd0e4);
+}
+
+.admin-profit p,
+.admin-profit strong {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.admin-profit p {
+  color: var(--admin-muted);
+}
+
+.admin-profit strong {
+  color: var(--pink-dark, #ea0f7c);
+}
+
+.admin-profit .btn {
+  justify-self: start;
+  min-height: 40px;
+}
+
+.admin-product-card__gain {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--admin-muted);
+}
+
 .admin-form__code {
   display: flex;
   gap: 8px;
@@ -3729,6 +3807,14 @@ legend { font-weight: 800; margin-bottom: 8px; }
   font-weight: 800;
   padding: 6px 4px;
   cursor: pointer;
+}
+
+.admin-product-video {
+  width: 100%;
+  max-height: 280px;
+  border-radius: 16px;
+  background: #2b2430;
+  object-fit: cover;
 }
 
 .admin-gallery__list button.is-danger:hover {
@@ -4853,6 +4939,13 @@ legend { font-weight: 800; margin-bottom: 8px; }
   object-fit: cover;
 }
 
+.admin-product-card__media em.is-video {
+  top: auto;
+  bottom: 10px;
+  left: 10px;
+  background: #2b2430;
+}
+
 .admin-product-card__ph {
   display: grid;
   place-items: center;
@@ -5503,7 +5596,7 @@ legend { font-weight: 800; margin-bottom: 8px; }
 }
 
 .admin-orders-kpis {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 .admin-orders-kpis .admin-inventory-kpi strong {
@@ -6079,7 +6172,7 @@ legend { font-weight: 800; margin-bottom: 8px; }
 }
 
 .admin-sale__custom input[type="number"] {
-  flex: 0 0 72px;
+  flex: 0 0 88px;
 }
 
 .admin-sale__custom .btn {
