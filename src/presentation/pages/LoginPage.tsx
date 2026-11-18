@@ -17,12 +17,52 @@ export function LoginPage() {
   const [error, setError] = useState("")
   const [pending, setPending] = useState(false)
 
-  // Redirigir si el usuario ya está autenticado
   useEffect(() => {
     if (!auth.loading && auth.customer) {
       redirectAfterLogin(navigate, auth.customer, location.search)
     }
   }, [auth.customer, auth.loading, location.search, navigate])
+
+  useEffect(() => {
+    const host = window as Window & {
+      nanaNativeLogin?: (email: string, password: string) => Promise<void>
+      nanaNativeGoogle?: () => Promise<void>
+      NanaAuth?: { postMessage: (message: string) => void }
+    }
+
+    function notify(payload: { type: string; message?: string }) {
+      host.NanaAuth?.postMessage(JSON.stringify(payload))
+    }
+
+    host.nanaNativeLogin = async (email: string, password: string) => {
+      const result = await auth.login(email, password)
+      if (!result.ok) {
+        notify({ type: "error", message: authErrorMessage(result.error) })
+        return
+      }
+      notify({ type: "ok" })
+      redirectAfterLogin(navigate, result.value, location.search)
+    }
+
+    host.nanaNativeGoogle = async () => {
+      const result = await auth.loginWithGoogle()
+      if (result.ok) {
+        notify({ type: "ok" })
+        redirectAfterLogin(navigate, result.value, location.search)
+        return
+      }
+      if (result.error.type === "redirect-pending") {
+        notify({ type: "google" })
+        return
+      }
+      notify({ type: "error", message: authErrorMessage(result.error) })
+    }
+
+    return () => {
+      delete host.nanaNativeLogin
+      delete host.nanaNativeGoogle
+    }
+  }, [auth, location.search, navigate])
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()

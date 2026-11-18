@@ -33,6 +33,17 @@ function authCode(error: unknown) {
   return typeof error === "object" && error && "code" in error ? String((error as { code?: string }).code) : ""
 }
 
+function isAppWebView() {
+  if (typeof window === "undefined") return false
+  try {
+    if (document.documentElement.classList.contains("nana-flutter")) return true
+    if (new URLSearchParams(window.location.search).get("app") === "1") return true
+    return /NaNaAdmin/i.test(navigator.userAgent)
+  } catch {
+    return false
+  }
+}
+
 async function syncUserDocument(user: User, role: UserRole) {
   const userDocRef = doc(firebaseDb, "users", user.uid)
   const userSnap = await getDoc(userDocRef)
@@ -129,6 +140,10 @@ export class FirebaseAuthService {
 
   async loginWithGoogle(): Promise<AuthResult<Customer>> {
     try {
+      if (isAppWebView()) {
+        await signInWithRedirect(firebaseAuth, googleAuthProvider)
+        return { ok: false, error: { type: "redirect-pending" } }
+      }
       const result = await signInWithPopup(firebaseAuth, googleAuthProvider)
       const customer = await this.#finishGoogleUser(result.user)
       return { ok: true, value: customer }
