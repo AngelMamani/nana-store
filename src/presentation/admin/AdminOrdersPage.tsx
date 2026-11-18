@@ -36,8 +36,10 @@ import {
 } from "../../domain/ordering/period.ts"
 import { receiptFromOrder } from "../../domain/ordering/receipt.ts"
 import { container } from "../../infrastructure/composition/container.ts"
+import { useCatalog } from "../catalog/catalog-context.ts"
 import { printReceipt } from "../../infrastructure/ordering/thermal-printer.ts"
 import { confirmAdminAction, promptAdminNumber, showAdminError } from "./admin-alerts.ts"
+import { AdminCategoryFilter } from "./AdminCategoryFilter.tsx"
 import { AdminPrinterBar } from "./AdminPrinterBar.tsx"
 import { AdminStoreSaleForm } from "./AdminStoreSaleForm.tsx"
 
@@ -92,10 +94,14 @@ function matchesQuery(order: StoreOrder, needle: string) {
 }
 
 export function AdminOrdersPage() {
+  useCatalog()
   const store = container.getStore()
+  const products = container.listProducts()
+  const categories = container.listCategories()
   const [orders, setOrders] = useState<StoreOrder[]>([])
   const [error, setError] = useState("")
   const [query, setQuery] = useState("")
+  const [categoryId, setCategoryId] = useState("all")
   const [filter, setFilter] = useState<OrderFilter>("nuevo")
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all")
   const [view, setView] = useState<OrderView>(readView)
@@ -176,13 +182,20 @@ export function AdminOrdersPage() {
     return orders.filter((order) => {
       if (filter !== "all" && order.status !== filter) return false
       if (channelFilter !== "all" && orderChannel(order) !== channelFilter) return false
+      if (categoryId !== "all") {
+        const inCategory = order.lines.some((line) => {
+          const product = products.find((item) => item.id === line.productId)
+          return product?.categoryId === categoryId
+        })
+        if (!inCategory) return false
+      }
       if (!matchesQuery(order, needle)) return false
       if (filter === "reservado") return true
       if (filter === "all" && order.status === "reservado") return true
       const stamp = order.status === "atendido" ? (orderSoldAt(order) ?? order.createdAt) : order.createdAt
       return isInPeriod(stamp, range.start, range.end)
     })
-  }, [orders, query, filter, channelFilter, range])
+  }, [orders, products, query, categoryId, filter, channelFilter, range])
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(page, pageCount)
@@ -439,6 +452,14 @@ export function AdminOrdersPage() {
             placeholder="Buscar cliente, prenda o nota"
           />
         </label>
+        <AdminCategoryFilter
+          categories={categories}
+          value={categoryId}
+          onChange={(next) => {
+            setCategoryId(next)
+            setPage(1)
+          }}
+        />
         <div className="admin-products-views" role="group" aria-label="Modo de vista">
           <button
             type="button"

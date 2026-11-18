@@ -10,6 +10,7 @@ import { reservedUnitsForProduct, type StoreOrder } from "../../domain/ordering/
 import { container } from "../../infrastructure/composition/container.ts"
 import { useCatalog } from "../catalog/catalog-context.ts"
 import { showAdminError } from "./admin-alerts.ts"
+import { AdminCategoryFilter } from "./AdminCategoryFilter.tsx"
 
 const VIEW_KEY = "nana-admin-inventory-view"
 const PAGE_SIZE = 10
@@ -211,23 +212,14 @@ export function AdminInventoryPage() {
             placeholder="Buscar prenda, color o talla"
           />
         </label>
-        <label className="admin-products-filter">
-          <Glyph name="grid" />
-          <select
-            value={categoryId}
-            onChange={(event) => {
-              setCategoryId(event.target.value)
-              setPage(1)
-            }}
-          >
-            <option value="all">Todas las categorías</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <AdminCategoryFilter
+          categories={categories}
+          value={categoryId}
+          onChange={(next) => {
+            setCategoryId(next)
+            setPage(1)
+          }}
+        />
         <div className="admin-products-views" role="group" aria-label="Modo de vista">
           <button
             type="button"

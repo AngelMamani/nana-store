@@ -9,6 +9,7 @@ import {
   showAdminError,
   showAdminSuccess,
 } from "./admin-alerts.ts"
+import { AdminCategoryFilter } from "./AdminCategoryFilter.tsx"
 
 const VIEW_KEY = "nana-admin-categories-view"
 
@@ -30,6 +31,7 @@ export function AdminCategoriesPage() {
   const products = container.listProducts()
   const [name, setName] = useState("")
   const [query, setQuery] = useState("")
+  const [categoryId, setCategoryId] = useState("all")
   const [view, setView] = useState<CategoryView>(readView)
 
   const sorted = useMemo(
@@ -39,12 +41,12 @@ export function AdminCategoriesPage() {
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase()
-    if (!needle) return sorted
-    return sorted.filter(
-      (category) =>
-        category.name.toLowerCase().includes(needle) || category.slug.toLowerCase().includes(needle),
-    )
-  }, [sorted, query])
+    return sorted.filter((category) => {
+      if (categoryId !== "all" && category.id !== categoryId) return false
+      if (!needle) return true
+      return category.name.toLowerCase().includes(needle) || category.slug.toLowerCase().includes(needle)
+    })
+  }, [sorted, query, categoryId])
 
   function productCount(id: string) {
     return products.filter((product) => product.categoryId === id).length
@@ -167,6 +169,7 @@ export function AdminCategoriesPage() {
             placeholder="Buscar categoría"
           />
         </label>
+        <AdminCategoryFilter categories={categories} value={categoryId} onChange={setCategoryId} />
         <div className="admin-products-views" role="group" aria-label="Modo de vista">
           <button
             type="button"

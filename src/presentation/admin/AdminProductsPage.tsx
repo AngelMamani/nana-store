@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react"
+import { useMemo, useState, type ReactNode } from "react"
 import { useNavigate } from "react-router-dom"
 import { formatPen } from "../../domain/catalog/money.ts"
 import { summarizePrice } from "../../domain/catalog/pricing.ts"
@@ -8,6 +8,7 @@ import type { Product } from "../../domain/catalog/entities.ts"
 import { container } from "../../infrastructure/composition/container.ts"
 import { useCatalog } from "../catalog/catalog-context.ts"
 import { confirmAdminAction, showAdminError, showAdminSuccess } from "./admin-alerts.ts"
+import { AdminCategoryFilter } from "./AdminCategoryFilter.tsx"
 
 const VIEW_KEY = "nana-admin-products-view"
 const PAGE_SIZE = 10
@@ -33,14 +34,6 @@ export function AdminProductsPage() {
   const [categoryId, setCategoryId] = useState("all")
   const [view, setView] = useState<ProductView>(readView)
   const [page, setPage] = useState(1)
-  const [narrow, setNarrow] = useState(() => window.matchMedia("(max-width: 767px)").matches)
-
-  useEffect(() => {
-    const media = window.matchMedia("(max-width: 767px)")
-    const sync = () => setNarrow(media.matches)
-    media.addEventListener("change", sync)
-    return () => media.removeEventListener("change", sync)
-  }, [])
 
   const filtered = useMemo(() => {
     const found = searchProducts(products, query)
@@ -118,48 +111,14 @@ export function AdminProductsPage() {
             placeholder="Buscar por nombre, código o talla"
           />
         </label>
-        <label className="admin-products-filter">
-          <Glyph name="grid" />
-          <select
-            value={categoryId}
-            onChange={(event) => {
-              setCategoryId(event.target.value)
-              setPage(1)
-            }}
-          >
-            <option value="all">Todas las categorías</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="admin-products-chips" role="tablist" aria-label="Categorías">
-          <button
-            type="button"
-            className={categoryId === "all" ? "is-on" : ""}
-            onClick={() => {
-              setCategoryId("all")
-              setPage(1)
-            }}
-          >
-            Todas
-          </button>
-          {categories.map((category) => (
-            <button
-              key={category.id}
-              type="button"
-              className={categoryId === category.id ? "is-on" : ""}
-              onClick={() => {
-                setCategoryId(category.id)
-                setPage(1)
-              }}
-            >
-              {category.name}
-            </button>
-          ))}
-        </div>
+        <AdminCategoryFilter
+          categories={categories}
+          value={categoryId}
+          onChange={(next) => {
+            setCategoryId(next)
+            setPage(1)
+          }}
+        />
         <div className="admin-products-views" role="group" aria-label="Modo de vista">
           <button
             type="button"
@@ -190,8 +149,8 @@ export function AdminProductsPage() {
           <strong>No hay prendas con ese filtro</strong>
           <p>Prueba otra búsqueda o crea un producto nuevo.</p>
         </section>
-      ) : narrow || view === "cards" ? (
-        <section className={`admin-products-grid${narrow ? " is-mobile" : ""}`}>
+      ) : view === "cards" ? (
+        <section className="admin-products-grid">
           {visible.map((product) => (
             <ProductCard
               key={product.id}
@@ -228,15 +187,16 @@ export function AdminProductsPage() {
                           <div>
                             <strong>{product.name}</strong>
                             {price.offer && <em>Oferta</em>}
+                            {product.pin ? <em>Destacado</em> : null}
                           </div>
                         </div>
                       </td>
-                      <td>{category?.name ?? "Sin categoría"}</td>
-                      <td>
+                      <td data-label="Categoría">{category?.name ?? "Sin categoría"}</td>
+                      <td data-label="Precio">
                         {price.from ? "Desde " : ""}
                         {formatPen(price.amount)}
                       </td>
-                      <td>
+                      <td data-label="Stock">
                         <StockBadge stock={stock} />
                       </td>
                       <td>

@@ -4821,8 +4821,14 @@ legend { font-weight: 800; margin-bottom: 8px; }
 
 .admin-products-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+}
+
+@media (min-width: 1024px) {
+  .admin-products-grid {
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  }
 }
 
 .admin-product-card {
@@ -7544,10 +7550,10 @@ legend { font-weight: 800; margin-bottom: 8px; }
   .admin-products-search {
     flex: 1 1 100%;
     min-width: 0;
+    min-height: 46px;
   }
 
-  .admin-products-filter,
-  .admin-products-views {
+  .admin-products-filter {
     display: none;
   }
 
@@ -7632,11 +7638,18 @@ legend { font-weight: 800; margin-bottom: 8px; }
     padding: 8px 12px;
   }
 
-  .admin-products-views button span {
-    display: none;
+  .admin-products-views {
+    width: 100%;
+    margin-left: 0;
   }
 
-  .admin-products-grid,
+  .admin-products-views button {
+    flex: 1;
+    justify-content: center;
+    min-height: 42px;
+  }
+
+  .admin-products .admin-products-grid,
   .admin-inventory-grid,
   .admin-offers-grid,
   .admin-orders-grid,
@@ -7645,54 +7658,105 @@ legend { font-weight: 800; margin-bottom: 8px; }
     gap: 10px;
   }
 
-  .admin-products-grid.is-mobile,
-  .admin-products .admin-products-grid {
-    grid-template-columns: 1fr;
-    gap: 8px;
+  .admin-products-table.admin-card {
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
   }
 
-  .admin-products .admin-product-card {
-    display: grid;
-    grid-template-columns: 92px minmax(0, 1fr);
-    min-height: 92px;
-    border-radius: 16px;
-    box-shadow: 0 6px 16px rgba(43, 36, 48, 0.04);
+  .admin-products-table .admin-table-wrapper {
+    overflow: visible;
   }
 
-  .admin-products .admin-product-card__media {
-    aspect-ratio: auto;
-    height: 100%;
-    min-height: 92px;
-  }
-
-  .admin-products .admin-product-card__media em {
+  .admin-products-table thead {
     display: none;
   }
 
-  .admin-products .admin-product-card__tags i {
-    display: inline-flex;
+  .admin-products-table tbody {
+    display: grid;
+    gap: 10px;
   }
 
-  .admin-products .admin-product-card__body {
-    padding: 10px 12px 10px 0;
+  .admin-products-table tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 6px 10px;
+    padding: 12px;
+    border-radius: 18px;
+    border: 1px solid var(--admin-line);
+    background: var(--admin-card);
+    box-shadow: 0 8px 20px rgba(43, 36, 48, 0.04);
+  }
+
+  .admin-products-table td {
+    border: 0;
+    padding: 0;
     min-width: 0;
   }
 
-  .admin-products .admin-product-card__body h2 {
-    font-size: 14px;
+  .admin-products-table td:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .admin-products-table td[data-label]::before {
+    content: attr(data-label) ": ";
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--admin-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .admin-products-table td:last-child {
+    grid-column: 2;
+    grid-row: 2 / 5;
+    align-self: center;
+  }
+
+  .admin-products-table .admin-product-cell img,
+  .admin-products-table .admin-product-cell span {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+  }
+
+  .admin-product-card {
+    min-width: 0;
+    border-radius: 18px;
+  }
+
+  .admin-products-grid .admin-product-card__sku {
+    display: none;
+  }
+
+  .admin-product-card__body {
+    padding: 10px 12px 12px;
+    gap: 3px;
+  }
+
+  .admin-product-card__body h2 {
+    font-size: 13px;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
 
-  .admin-products .admin-product-card__meta .admin-products-actions button:not(.is-danger) {
-    display: none;
+  .admin-product-card__tags i {
+    display: inline-flex;
   }
 
-  .admin-products .admin-products-actions button {
+  .admin-products-actions button {
     width: 40px;
     height: 40px;
+  }
+
+  .admin-products-pager button {
+    min-height: 44px;
+    flex: 1;
+    justify-content: center;
   }
 
   .admin-offers-kpis,
@@ -7773,6 +7837,18 @@ html.nana-flutter .admin-main:has(.admin-home) {
   background: #121214 !important;
   padding: 8px 16px 24px !important;
   min-height: 100dvh;
+}
+
+html.nana-flutter .admin-products-toolbar {
+  top: 0;
+}
+
+html.nana-flutter .admin-products-fab {
+  bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+}
+
+html.nana-flutter .admin-products {
+  padding-bottom: 148px;
 }
 
 html.nana-flutter .admin-screen.admin-home {
