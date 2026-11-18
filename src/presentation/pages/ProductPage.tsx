@@ -19,7 +19,7 @@ import { container } from "../../infrastructure/composition/container.ts"
 import { useAuth } from "../auth/auth-context.ts"
 import { useCatalog } from "../catalog/catalog-context.ts"
 import { useCart } from "../cart/cart-context.ts"
-import { ProductCard } from "../components/ProductCard.tsx"
+import { ProductCarousel } from "../components/ProductCarousel.tsx"
 
 function ProductDetail({ product }: { product: Product }) {
   const navigate = useNavigate()
@@ -212,11 +212,7 @@ function ProductDetail({ product }: { product: Product }) {
               </p>
             </div>
           </header>
-          <div className="product-grid">
-            {related.map((item) => (
-              <ProductCard key={item.id} product={item} />
-            ))}
-          </div>
+          <ProductCarousel products={related} />
         </section>
       ) : null}
     </article>

@@ -4,7 +4,7 @@ import { container } from "../../infrastructure/composition/container.ts"
 import { useCart } from "../cart/cart-context.ts"
 import { useCatalog } from "../catalog/catalog-context.ts"
 import { normalizeStoreProfile } from "../../domain/catalog/store-media.ts"
-import { ProductCard } from "../components/ProductCard.tsx"
+import { ProductCarousel } from "../components/ProductCarousel.tsx"
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -108,11 +108,7 @@ export function HomePage() {
         <h2>{section.category.name}</h2>
         <Link to={`/c/${section.category.slug}`}>Ver todo ({section.total})</Link>
       </header>
-      <div className="rail">
-        {section.products.map((product) => (
-          <ProductCard key={product.id} product={product} />
-        ))}
-      </div>
+      <ProductCarousel products={section.products} />
       <Link className="see-all" to={`/c/${section.category.slug}`}>
         Ver todo de {section.category.name}
       </Link>
