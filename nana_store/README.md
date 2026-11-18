@@ -1,10 +1,8 @@
-# NaNa Admin
+# NaNa Admin (Flutter)
 
-Aplicativo Flutter de la **parte administrativa** de NaNa (Pedidos, caja, inventario). Abre el panel en `https://nana-store-two.vercel.app`.
+Panel administrativo nativo para tablet y celular. Comparte catálogo, pedidos y usuarios con la web.
 
-## Cómo correrlo
-
-En la tablet o el celular, con Flutter instalado:
+## Correr
 
 ```bash
 cd nana_store
@@ -12,19 +10,19 @@ flutter pub get
 flutter run
 ```
 
-Para un APK instalable:
+## APK
 
 ```bash
-cd nana_store
 flutter build apk --release
 ```
 
-El archivo queda en `build/app/outputs/flutter-apk/app-release.apk`.
+Salida: `build/app/outputs/flutter-apk/app-release.apk`.
 
 ## Uso
 
-1. Entra con el correo de administrador (el mismo de la web).
-2. Quedas en `/admin`: Pedidos, venta, impresora, etc.
-3. Cámara y Bluetooth se piden al abrir la app (escáner e impresión).
+1. Entra con Google o correo de administrador (el mismo de la web).
+2. Inicio: productos, categorías, ofertas, usuarios, videos y tienda.
+3. Pedidos, venta en tienda (contado / contra entrega), inventario.
+4. En venta: vincula la **POS58** (Bluetooth, PIN 0000) para imprimir la boleta simple.
 
-La impresión Bluetooth de la POS58 funciona mejor en **Chrome**. El WebView de Android no habla Web Bluetooth; si no imprime desde la app, abre Pedidos en Chrome.
+Si Google no abre el selector de cuentas, agrega el SHA-1 de tu `debug.keystore` en Firebase (ver README de la raíz del repo).

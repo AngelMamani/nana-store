@@ -12,12 +12,13 @@ class NanaAuthException implements Exception {
 
 class NanaAuthService {
   NanaAuthService({FirebaseAuth? auth, FirebaseFirestore? firestore})
-    : _auth = auth ?? FirebaseAuth.instance,
-      _firestore = firestore ?? FirebaseFirestore.instance;
+    : _authOverride = auth,
+      _firestoreOverride = firestore;
 
-  final FirebaseAuth _auth;
-  final FirebaseFirestore _firestore;
-  var _googleReady = false;
+  final FirebaseAuth? _authOverride;
+  final FirebaseFirestore? _firestoreOverride;
+  FirebaseAuth get _auth => _authOverride ?? FirebaseAuth.instance;
+  FirebaseFirestore get _firestore => _firestoreOverride ?? FirebaseFirestore.instance;
 
   Stream<User?> authChanges() => _auth.authStateChanges();
 
@@ -38,7 +39,6 @@ class NanaAuthService {
 
   Future<SessionUser> signInWithGoogle() async {
     try {
-      await _ensureGoogle();
       final googleUser = await GoogleSignIn.instance.authenticate();
       final idToken = googleUser.authentication.idToken;
       if (idToken == null) {
@@ -50,13 +50,15 @@ class NanaAuthService {
       rethrow;
     } on GoogleSignInException catch (error) {
       if (error.code == GoogleSignInExceptionCode.canceled) {
-        throw const NanaAuthException('Inicio de Google cancelado.');
+        throw const NanaAuthException(
+          'Google se cerró o falta la huella SHA-1 de esta app en Firebase (paquete pe.nanastore.admin).',
+        );
       }
-      throw NanaAuthException('No se pudo entrar con Google. ${error.description ?? ''}');
+      throw NanaAuthException('No se pudo entrar con Google. ${error.description ?? error.code.name}');
     } on FirebaseAuthException catch (error) {
       throw NanaAuthException(_messageFor(error.code));
-    } catch (_) {
-      throw const NanaAuthException('No se pudo entrar con Google.');
+    } catch (error) {
+      throw NanaAuthException('No se pudo entrar con Google. $error');
     }
   }
 
@@ -65,12 +67,6 @@ class NanaAuthService {
       await GoogleSignIn.instance.signOut();
     } catch (_) {}
     await _auth.signOut();
-  }
-
-  Future<void> _ensureGoogle() async {
-    if (_googleReady) return;
-    await GoogleSignIn.instance.initialize();
-    _googleReady = true;
   }
 
   Future<SessionUser> _sessionFromFirebase(User user) async {

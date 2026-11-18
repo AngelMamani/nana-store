@@ -1,32 +1,79 @@
-# React + TypeScript + Vite
+# NaNa Store
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Tienda pública (web) y panel administrativo nativo (Flutter) para NaNa, Puerto Maldonado.
 
-Currently, two official plugins are available:
+- **Web:** catálogo, carrito y admin en el navegador (`npm run dev`)
+- **Admin móvil/tablet:** app Flutter en `nana_store/` (no usa WebView)
+- **Datos:** Firebase (Auth, Firestore, Storage) — proyecto `nana-store-8b0ab`
+- **Producción web:** [nana-store-two.vercel.app](https://nana-store-two.vercel.app)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Requisitos
 
-## React Compiler
+- Node.js 20 o superior
+- Flutter 3.32 o superior (canal estable)
+- Android SDK (para la app)
+- Acceso al proyecto Firebase y al repositorio GitHub
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Web
 
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Build de producción:
+
+```bash
+npm run build
+```
+
+## Admin Flutter
+
+```bash
+cd nana_store
+flutter pub get
+flutter run
+```
+
+APK:
+
+```bash
+cd nana_store
+flutter build apk --release
+```
+
+El APK queda en `nana_store/build/app/outputs/flutter-apk/app-release.apk`.
+
+### Google Sign-In en Android
+
+Cada computadora tiene un SHA-1 de debug distinto. Si el login con Google falla en un equipo nuevo:
+
+1. Obtén el SHA-1:
+
+```bash
+keytool -list -v -keystore %USERPROFILE%\.android\debug.keystore -alias androiddebugkey -storepass android -keypass android
+```
+
+2. En Firebase Console → app Android `pe.nanastore.admin` → agrega ese SHA-1 (y SHA-256).
+3. Descarga de nuevo `google-services.json` si Firebase lo pide y reemplaza `nana_store/android/app/google-services.json`.
+
+El cliente OAuth web ya está configurado en la app. PIN de la POS58: **0000**. Empareja la impresora en Bluetooth del dispositivo antes de cobrar.
+
+### Permisos
+
+La app pide cámara (código de barras) y Bluetooth (boleta térmica).
+
+## Qué hay en cada carpeta
+
+| Ruta | Contenido |
+| --- | --- |
+| `src/` | Tienda y admin web (Vite + React + TypeScript) |
+| `nana_store/` | Admin nativo Flutter |
+| `public/` | Assets estáticos de la web |
+
+## Notas para el equipo
+
+- No subas keystores (`.jks`, `key.properties`) ni archivos `.env`.
+- `google-services.json` sí va en el repo: es configuración de cliente, no la cuenta de Firebase.
+- El superadmin del panel es el correo configurado en el código de autenticación.
+- Tras clonar, corre `flutter pub get` y `npm install` antes de abrir issues de “no arranca”.

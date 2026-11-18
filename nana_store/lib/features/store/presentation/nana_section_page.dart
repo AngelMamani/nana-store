@@ -1,17 +1,28 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/nana_colors.dart';
+import '../../shell/presentation/nana_admin_store.dart';
 
 class NanaSectionPage extends StatelessWidget {
-  const NanaSectionPage({super.key, required this.title, required this.hint});
+  const NanaSectionPage({super.key, required this.title, this.hint, this.body});
 
   final String title;
-  final String hint;
+  final String? hint;
+  final Widget? body;
 
-  static Future<void> open(BuildContext context, {required String title, required String hint}) {
+  static Future<void> open(
+    BuildContext context, {
+    required String title,
+    String? hint,
+    Widget? body,
+  }) {
+    final store = NanaAdminStoreScope.of(context);
     return Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => NanaSectionPage(title: title, hint: hint),
+        builder: (_) => NanaAdminStoreScope(
+          store: store,
+          child: NanaSectionPage(title: title, hint: hint, body: body),
+        ),
       ),
     );
   }
@@ -23,31 +34,42 @@ class NanaSectionPage extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.white,
         foregroundColor: NanaColors.ink,
+        elevation: 0,
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.auto_awesome_rounded, size: 42, color: NanaColors.pinkDark),
-              const SizedBox(height: 12),
-              Text(
-                hint,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontWeight: FontWeight.w700, color: NanaColors.muted),
+      body: body ??
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: NanaColors.soft,
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                    child: const Icon(Icons.auto_awesome_rounded, size: 36, color: NanaColors.pinkDark),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    hint ?? title,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: NanaColors.ink),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Esta sección se completa en nativo, sin abrir la web.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontWeight: FontWeight.w600, color: NanaColors.muted),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              const Text(
-                'Esta pantalla se arma en Flutter, sin la web.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontWeight: FontWeight.w600, color: NanaColors.ink),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
     );
   }
 }
+

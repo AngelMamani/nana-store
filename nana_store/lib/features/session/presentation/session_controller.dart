@@ -18,6 +18,9 @@ class SessionController extends ChangeNotifier {
   String? error;
 
   Future<void> start() async {
+    await _sub?.cancel();
+    loading = true;
+    notifyListeners();
     _sub = _auth.authChanges().listen((firebaseUser) async {
       if (firebaseUser == null) {
         user = null;
@@ -51,9 +54,7 @@ class SessionController extends ChangeNotifier {
   }
 
   Future<void> loginGoogle() async {
-    busy = true;
     error = null;
-    notifyListeners();
     try {
       user = await _auth.signInWithGoogle();
     } on NanaAuthException catch (ex) {

@@ -41,7 +41,9 @@ class _NanaLoginViewState extends State<NanaLoginView> {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
+    return Scaffold(
+      backgroundColor: NanaColors.cream,
+      body: DecoratedBox(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -82,6 +84,11 @@ class _NanaLoginViewState extends State<NanaLoginView> {
                             NanaAssets.logo,
                             fit: BoxFit.cover,
                             semanticLabel: 'NaNa',
+                            errorBuilder: (_, _, _) => const Icon(
+                              Icons.storefront_rounded,
+                              size: 72,
+                              color: NanaColors.pinkDark,
+                            ),
                           ),
                         ),
                       ),
@@ -240,6 +247,7 @@ class _NanaLoginViewState extends State<NanaLoginView> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
