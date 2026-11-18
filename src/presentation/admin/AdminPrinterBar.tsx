@@ -51,12 +51,12 @@ export function AdminPrinterBar() {
         <em>
           {status.connected
             ? status.link === "bluetooth"
-              ? "Bluetooth listo para imprimir. Sin RawBT, sin marca de agua."
+              ? "Lista. Las siguientes boletas salen al toque, sin buscar otra vez."
               : "USB/COM listo para imprimir"
             : ios
-              ? "En iPhone o iPad Safari no puede hablar Bluetooth con la POS58. Al imprimir se abre Compartir o el menú de impresión."
+              ? "En iPhone o iPad al imprimir se abre el menú de impresión, sin buscar Bluetooth."
               : android || touch
-                ? "Pulsa Bluetooth y elige la POS58 (sale al toque). Si ya la vinculaste, imprime sin buscar de nuevo."
+                ? "Pulsa Bluetooth una sola vez y elige la POS58. Después imprime al toque."
                 : canUseUsbPrinter()
                   ? "Pulsa USB/COM solo si el cable está enchufado. Si no, Bluetooth."
                   : "Al imprimir se abre el selector. PIN de la POS58: 0000."}

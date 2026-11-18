@@ -19,6 +19,7 @@ type BleService = {
 }
 
 type BluetoothDeviceLike = {
+  id?: string
   name?: string
   gatt?: {
     connected: boolean
@@ -82,13 +83,7 @@ const BLE_NAME_PREFIXES = [
   { namePrefix: "BlueTooth" },
 ]
 
-const BLE_PICKER_FILTERS = [
-  ...BLE_NAME_PREFIXES,
-  { services: ["000018f0-0000-1000-8000-00805f9b34fb"] },
-  { services: ["0000ff00-0000-1000-8000-00805f9b34fb"] },
-  { services: ["0000ffe0-0000-1000-8000-00805f9b34fb"] },
-  { services: ["e7810a71-73ae-499d-8c15-faa9aef0c3f2"] },
-]
+const PRINTER_CACHE_KEY = "nana-thermal-printer"
 
 const PC850: Record<string, number> = {
   Á: 0xb5,
@@ -123,6 +118,25 @@ let writeBle:
   | null = null
 let serialPort: SerialPortLike | null = null
 let serialWriter: { write: (data: Uint8Array) => Promise<void>; releaseLock: () => void } | null = null
+let lastServiceUuid = ""
+
+function readPrinterCache() {
+  try {
+    const raw = localStorage.getItem(PRINTER_CACHE_KEY)
+    if (!raw) return null
+    return JSON.parse(raw) as { name?: string; id?: string; service?: string }
+  } catch {
+    return null
+  }
+}
+
+function writePrinterCache(device: BluetoothDeviceLike, service: string) {
+  lastServiceUuid = service
+  localStorage.setItem(
+    PRINTER_CACHE_KEY,
+    JSON.stringify({ name: device.name?.trim() || "POS58", id: device.id ?? "", service }),
+  )
+}
 
 function notify() {
   for (const listener of listeners) listener()
@@ -159,12 +173,13 @@ async function forget() {
     }
   }
   bluetoothDevice = null
+  lastServiceUuid = ""
+  localStorage.removeItem(PRINTER_CACHE_KEY)
   setStatus({ link: "none", name: "", connected: false })
 }
 
 function onBluetoothGone() {
   writeBle = null
-  bluetoothDevice = null
   if (status.link === "bluetooth") setStatus({ link: "none", name: "", connected: false })
 }
 
@@ -483,29 +498,41 @@ async function writerFromServices(services: BleService[]) {
   return null
 }
 
+async function findWriter(
+  server: {
+    getPrimaryService: (uuid: string) => Promise<BleService>
+  },
+  preferred?: string,
+) {
+  const uuids = preferred ? [preferred, ...BLE_SERVICES.filter((uuid) => uuid !== preferred)] : BLE_SERVICES
+  if (preferred) {
+    try {
+      const writer = await writerFromServices([await server.getPrimaryService(preferred)])
+      if (writer) return { writer, uuid: preferred }
+    } catch {
+      /* el UUID guardado ya no responde */
+    }
+  }
+  const hits = await Promise.all(
+    uuids.map(async (uuid) => {
+      try {
+        const writer = await writerFromServices([await server.getPrimaryService(uuid)])
+        return writer ? { writer, uuid } : null
+      } catch {
+        return null
+      }
+    }),
+  )
+  return hits.find((item) => item) ?? null
+}
+
 async function attachBluetoothDevice(device: BluetoothDeviceLike) {
   if (!device.gatt) throw new Error("La impresora no expone Bluetooth de baja energía.")
+  if (bluetoothDevice === device && device.gatt.connected && writeBle) return
   const server = await device.gatt.connect()
-  let writer: ((chunk: Uint8Array) => Promise<void>) | null = null
-  if (server.getPrimaryServices) {
-    try {
-      writer = await writerFromServices(await server.getPrimaryServices())
-    } catch {
-      /* Chrome exige optionalServices para listar */
-    }
-  }
-  if (!writer) {
-    const found: BleService[] = []
-    for (const uuid of BLE_SERVICES) {
-      try {
-        found.push(await server.getPrimaryService(uuid))
-      } catch {
-        /* este UUID no existe en esta impresora */
-      }
-    }
-    writer = await writerFromServices(found)
-  }
-  if (!writer) {
+  const cached = lastServiceUuid || readPrinterCache()?.service
+  const found = await findWriter(server, cached)
+  if (!found) {
     throw new Error(
       isAndroidClient()
         ? "Chrome no encontró un canal BLE. Usa Chrome, enciende Bluetooth y elige la POS58."
@@ -513,7 +540,8 @@ async function attachBluetoothDevice(device: BluetoothDeviceLike) {
     )
   }
   bluetoothDevice = device
-  writeBle = writer
+  writeBle = found.writer
+  writePrinterCache(device, found.uuid)
   device.addEventListener("gattserverdisconnected", onBluetoothGone)
   setStatus({ link: "bluetooth", name: device.name?.trim() || "POS58", connected: true })
 }
@@ -602,25 +630,19 @@ img { display: block; width: 58mm; max-width: 100%; height: auto; margin: 0 auto
 }
 
 async function printSystemImage(ticket: ReceiptTicket) {
-  const dataUrl = await renderReceiptJpeg(ticket)
-  try {
-    const blob = await (await fetch(dataUrl)).blob()
-    const file = new File([blob], "boleta.jpg", { type: "image/jpeg" })
-    const share = navigator as Navigator & {
-      canShare?: (data: { files?: File[] }) => boolean
-      share?: (data: { files?: File[]; title?: string }) => Promise<void>
-    }
-    if (share.share && (!share.canShare || share.canShare({ files: [file] }))) {
-      await share.share({ files: [file], title: "Boleta" })
-      return
-    }
-  } catch {
-    /* se usa el diálogo de imprimir */
-  }
-  printImageDocument(dataUrl)
+  printImageDocument(await renderReceiptJpeg(ticket))
 }
 
 function pickSavedPrinter(devices: BluetoothDeviceLike[]) {
+  const cache = readPrinterCache()
+  if (cache?.id) {
+    const byId = devices.find((device) => device.id === cache.id)
+    if (byId) return byId
+  }
+  if (cache?.name) {
+    const byName = devices.find((device) => (device.name ?? "").trim() === cache.name)
+    if (byName) return byName
+  }
   return devices.find((device) => /pos|print|mtp|rpp|gp|thermal/i.test(device.name ?? "")) ?? devices[0]
 }
 
@@ -656,7 +678,7 @@ export async function reconnectSavedPrinter() {
   return status.connected
 }
 
-export async function connectBluetoothPrinter() {
+export async function connectBluetoothPrinter(forcePick = true) {
   const api = (navigator as BluetoothNavigator).bluetooth
   if (!api) {
     throw new Error(
@@ -665,7 +687,11 @@ export async function connectBluetoothPrinter() {
         : "Este navegador no permite Bluetooth. En Windows usa USB/COM.",
     )
   }
-  if (api.getDevices) {
+  if (!forcePick && bluetoothDevice?.gatt) {
+    await attachBluetoothDevice(bluetoothDevice)
+    return
+  }
+  if (!forcePick && api.getDevices) {
     try {
       const saved = pickSavedPrinter(await api.getDevices())
       if (saved) {
@@ -679,7 +705,7 @@ export async function connectBluetoothPrinter() {
   let device: BluetoothDeviceLike
   try {
     device = await api.requestDevice({
-      filters: BLE_PICKER_FILTERS,
+      filters: BLE_NAME_PREFIXES,
       optionalServices: BLE_SERVICES,
     })
   } catch (error) {
@@ -718,11 +744,15 @@ async function hasGrantedSerialPort() {
 }
 
 export async function ensurePrinterConnected() {
-  if (status.connected) return
+  if (status.connected && writeBle) return
+  if (bluetoothDevice?.gatt) {
+    await attachBluetoothDevice(bluetoothDevice)
+    if (status.connected) return
+  }
   if (await reconnectSavedPrinter()) return
   const wantBluetooth = canUseBluetoothPrinter() && (isAndroidClient() || isTouchClient())
   if (wantBluetooth) {
-    await connectBluetoothPrinter()
+    await connectBluetoothPrinter(false)
     return
   }
   if (await hasGrantedSerialPort()) {
@@ -761,8 +791,9 @@ export async function printReceipt(ticket: ReceiptTicket) {
     await printSystemImage(ticket)
     return
   }
+  const bytesPromise = encodeReceipt(ticket)
   await ensurePrinterConnected()
-  const bytes = await encodeReceipt(ticket)
+  const bytes = await bytesPromise
   if (status.link === "bluetooth" && writeBle) {
     await writeChunks(bytes, writeBle, 20)
     return
