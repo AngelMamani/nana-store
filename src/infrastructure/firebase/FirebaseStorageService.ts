@@ -23,12 +23,12 @@ export interface StorageService {
 export class FirebaseStorageService implements StorageService {
   async uploadFile(file: File, path: string): Promise<string> {
     const storageRef = ref(firebaseStorage, path)
-    const snapshot = await uploadBytes(storageRef, file)
+    const snapshot = await uploadBytes(storageRef, file, metadataFor(file))
     return await getDownloadURL(snapshot.ref)
   }
 
   uploadFileWithProgress(file: File, path: string, onProgress: (percent: number) => void): Promise<string> {
-    const task = uploadBytesResumable(ref(firebaseStorage, path), file)
+    const task = uploadBytesResumable(ref(firebaseStorage, path), file, metadataFor(file))
     return new Promise((resolve, reject) => {
       task.on(
         "state_changed",
@@ -121,6 +121,11 @@ export class FirebaseStorageService implements StorageService {
       /* already gone or not a storage url */
     }
   }
+}
+
+function metadataFor(file: File) {
+  const contentType = file.type.trim()
+  return contentType ? { contentType } : undefined
 }
 
 function newestItem(items: StorageReference[]) {

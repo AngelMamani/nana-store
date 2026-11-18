@@ -180,9 +180,10 @@ export function AdminProductFormPage() {
     }
     setVideoProgress(0)
     try {
+      const safeName = file.name.replace(/[^\w.-]+/g, "_").slice(0, 80) || "video.mp4"
       const url = await container.storage.uploadFileWithProgress(
         file,
-        `products/${id}/video-${Date.now()}-${file.name}`,
+        `products/${id}/videos/${Date.now()}-${safeName}`,
         (percent) => setVideoProgress(percent),
       )
       setVideo(url)
@@ -443,7 +444,9 @@ export function AdminProductFormPage() {
 
         <fieldset className="admin-gallery">
           <legend>Video</legend>
-          <p className="admin-form__hint">Se muestra en la ficha pública y en las tarjetas del catálogo. Máximo {MAX_VIDEO_MB} MB (MP4, WebM o MOV).</p>
+          <p className="admin-form__hint">
+            El archivo se guarda en Firebase Storage. Pulsa Guardar para publicarlo en la tienda. Máximo {MAX_VIDEO_MB} MB (MP4, WebM o MOV).
+          </p>
           <input
             ref={videoInput}
             className="admin-gallery__file"
