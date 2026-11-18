@@ -64,8 +64,87 @@ export function AdminHomePage() {
     ...categories.map((category) => products.filter((product) => product.categoryId === category.id).length),
   )
 
+  const firstName = customer?.name?.split(" ")[0] ?? "NaNa"
+  const initials = (() => {
+    const parts = (customer?.name ?? "NaNa").trim().split(/\s+/).filter(Boolean)
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
+    return firstName.slice(0, 2).toUpperCase()
+  })()
+
   return (
     <div className="admin-screen admin-home">
+      <section className="admin-home-app" aria-label="Panel principal">
+        <header className="admin-dash-top">
+          <span className="admin-dash-avatar">{initials}</span>
+          <Link to="/admin/tienda" className="admin-dash-menu" aria-label="Ajustes de tienda">
+            <HomeGlyph name="menu" />
+          </Link>
+        </header>
+        <div className="admin-dash-hello">
+          <h1>Hola, {firstName}</h1>
+          <p>Bienvenido al panel principal</p>
+        </div>
+        <div className="admin-dash-grid">
+          <Link className="admin-dash-tile is-feature" to="/admin/pedidos">
+            <span className="admin-dash-tile__icon">
+              <HomeGlyph name="clipboard" />
+            </span>
+            <strong>Pedidos</strong>
+            <ul>
+              <li>
+                <em>Ahora</em>
+                <span>
+                  {orderCount} {orderCount === 1 ? "pedido" : "pedidos"}
+                </span>
+              </li>
+              <li>
+                <em>Hoy</em>
+                <span>
+                  {low.length} con stock bajo
+                </span>
+              </li>
+            </ul>
+          </Link>
+          <Link className="admin-dash-tile" to="/admin/productos">
+            <span className="admin-dash-tile__icon">
+              <HomeGlyph name="shirt" />
+            </span>
+            <strong>Productos</strong>
+          </Link>
+          <Link className="admin-dash-tile" to="/admin/inventario">
+            <span className="admin-dash-tile__icon">
+              <HomeGlyph name="box" />
+            </span>
+            <strong>Inventario</strong>
+          </Link>
+          <Link className="admin-dash-tile" to="/admin/ofertas">
+            <span className="admin-dash-tile__icon">
+              <HomeGlyph name="tag" />
+            </span>
+            <strong>Ofertas</strong>
+          </Link>
+          <Link className="admin-dash-tile" to="/admin/tienda">
+            <span className="admin-dash-tile__icon">
+              <HomeGlyph name="store" />
+            </span>
+            <strong>Tienda</strong>
+          </Link>
+          <Link className="admin-dash-tile" to="/admin/videos">
+            <span className="admin-dash-tile__icon">
+              <HomeGlyph name="video" />
+            </span>
+            <strong>Videos</strong>
+          </Link>
+          <Link className="admin-dash-tile" to="/admin/categorias">
+            <span className="admin-dash-tile__icon">
+              <HomeGlyph name="grid" />
+            </span>
+            <strong>Categorías</strong>
+          </Link>
+        </div>
+      </section>
+
+      <div className="admin-home-web">
       <section className="admin-home-hero">
         <div className="admin-home-hero__glow" aria-hidden="true" />
         <div className="admin-home-hero__copy">
@@ -180,6 +259,7 @@ export function AdminHomePage() {
           )}
         </section>
       </div>
+      </div>
     </div>
   )
 }
@@ -257,6 +337,13 @@ function HomeGlyph({ name }: { name: string }) {
         <path d="M3 9 5.2 4h13.6L21 9" />
         <path d="M3 9v11h18V9" />
         <path d="M9 20v-6h6v6" />
+      </>
+    ),
+    menu: (
+      <>
+        <path d="M4 6h16" />
+        <path d="M4 12h16" />
+        <path d="M4 18h16" />
       </>
     ),
   }

@@ -7760,3 +7760,159 @@ legend { font-weight: 800; margin-bottom: 8px; }
     min-height: 0;
   }
 }
+
+.admin-home-app {
+  display: none;
+}
+
+html.nana-flutter .admin-home-web {
+  display: none;
+}
+
+html.nana-flutter .admin-main:has(.admin-home) {
+  background: #121214 !important;
+  padding: 8px 16px 24px !important;
+  min-height: 100dvh;
+}
+
+html.nana-flutter .admin-screen.admin-home {
+  max-width: none;
+  gap: 0;
+}
+
+html.nana-flutter .admin-home-app {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  color: #f3f3f3;
+}
+
+.admin-dash-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.admin-dash-avatar {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #2a2a2e;
+  color: #f5a623;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.admin-dash-menu {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  color: #ea0f7c;
+  border-radius: 12px;
+}
+
+.admin-dash-hello h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #f5a623;
+}
+
+.admin-dash-hello p {
+  margin: 4px 0 0;
+  color: #cfc7d2;
+  font-weight: 600;
+}
+
+.admin-dash-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-auto-rows: minmax(108px, auto);
+  gap: 12px;
+}
+
+.admin-dash-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 108px;
+  padding: 16px 12px;
+  border-radius: 22px;
+  background: #1c1c1f;
+  color: #f3f3f3;
+  text-decoration: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.admin-dash-tile strong {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.admin-dash-tile__icon {
+  color: #f5a623;
+}
+
+.admin-dash-tile__icon svg {
+  width: 32px;
+  height: 32px;
+}
+
+.admin-dash-tile.is-feature {
+  grid-row: span 2;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 12px;
+  min-height: 228px;
+  padding: 20px 18px;
+  background: #ea0f7c;
+  color: #fff;
+}
+
+.admin-dash-tile.is-feature .admin-dash-tile__icon,
+.admin-dash-tile.is-feature strong {
+  color: #fff;
+}
+
+.admin-dash-tile.is-feature strong {
+  font-size: 18px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-dash-tile.is-feature ul {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 14px;
+  width: 100%;
+}
+
+.admin-dash-tile.is-feature li {
+  display: grid;
+  gap: 2px;
+}
+
+.admin-dash-tile.is-feature em {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.admin-dash-tile.is-feature span {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
+}
