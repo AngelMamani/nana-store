@@ -238,7 +238,15 @@ export function AdminProductFormPage() {
       promotionalPrice: promotionalPrice !== null && Number.isFinite(promotionalPrice) ? promotionalPrice : null,
       cost,
       pin: form.pin,
-      rank: existing?.rank ?? container.listProducts().length,
+      rank:
+        existing?.rank ??
+        Math.min(
+          0,
+          ...container
+            .listProducts()
+            .filter((item) => item.categoryId === (form.categoryId || null))
+            .map((item) => item.rank),
+        ) - 1,
       createdAt: existing?.createdAt ?? new Date().toISOString(),
       variations: preview.variations,
       variants: preview.variants.map((variant) => {

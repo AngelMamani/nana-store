@@ -1,6 +1,6 @@
 {
-    "name": "NANA",
-    "short_name": "NANA",
+    "name": "NaNa Admin",
+    "short_name": "NaNa Admin",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#FFF7FB",

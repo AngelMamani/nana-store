@@ -339,6 +339,11 @@ export function AdminOrdersPage() {
     }
   }
 
+  function openStoreSale() {
+    setSaleOrder(null)
+    setSaleOpen(true)
+  }
+
   return (
     <div className="admin-screen admin-orders">
       <section className="admin-products-hero">
@@ -350,14 +355,7 @@ export function AdminOrdersPage() {
             siguen pendientes aunque cambie el día.
           </p>
         </div>
-        <button
-          type="button"
-          className="btn btn--primary"
-          onClick={() => {
-            setSaleOrder(null)
-            setSaleOpen(true)
-          }}
-        >
+        <button type="button" className="btn btn--primary" onClick={openStoreSale}>
           Venta en tienda
         </button>
       </section>
@@ -686,6 +684,10 @@ export function AdminOrdersPage() {
           }}
         />
       ) : null}
+      <button type="button" className="admin-products-fab" onClick={openStoreSale}>
+        <Glyph name="new" />
+        Venta
+      </button>
     </div>
   )
 }

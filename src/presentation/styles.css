@@ -7729,11 +7729,19 @@ legend { font-weight: 800; margin-bottom: 8px; }
     font-size: 24px;
   }
 
-  .admin-products-hero .btn {
+  .admin-products .admin-products-hero .btn {
     display: none;
   }
 
-  .admin-products {
+  .admin-orders .admin-products-hero .btn {
+    display: inline-flex;
+    justify-content: center;
+    width: 100%;
+    min-height: 46px;
+  }
+
+  .admin-products,
+  .admin-orders {
     padding-bottom: 84px;
   }
 
@@ -8047,7 +8055,8 @@ html.nana-flutter .admin-products-fab {
   bottom: calc(78px + env(safe-area-inset-bottom, 0px));
 }
 
-html.nana-flutter .admin-products {
+html.nana-flutter .admin-products,
+html.nana-flutter .admin-orders {
   padding-bottom: 148px;
 }
 

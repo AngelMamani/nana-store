@@ -45,9 +45,15 @@ export function AdminProductsPage() {
   const filtered = useMemo(() => {
     const found = searchProducts(products, query)
     const scoped = categoryId === "all" ? found : found.filter((product) => product.categoryId === categoryId)
-    return [...scoped].sort(
-      (left, right) => Number(Boolean(right.pin)) - Number(Boolean(left.pin)) || left.name.localeCompare(right.name, "es"),
-    )
+    return [...scoped].sort((left, right) => {
+      const pin = Number(Boolean(right.pin)) - Number(Boolean(left.pin))
+      if (pin) return pin
+      const leftTime = Date.parse(left.createdAt ?? "")
+      const rightTime = Date.parse(right.createdAt ?? "")
+      const leftStamp = Number.isFinite(leftTime) ? leftTime : 0
+      const rightStamp = Number.isFinite(rightTime) ? rightTime : 0
+      return rightStamp - leftStamp || left.name.localeCompare(right.name, "es")
+    })
   }, [products, query, categoryId])
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))

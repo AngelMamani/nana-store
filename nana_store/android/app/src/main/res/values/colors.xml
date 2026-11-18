@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="nana_pink">#FF9ABA</color>
+    <color name="nana_pink">#F457A5</color>
+    <color name="nana_cream">#FFF7FB</color>
 </resources>

@@ -34,8 +34,11 @@ export function sortProducts(products: Product[], sort: ProductSort): Product[] 
   const byName = (left: Product, right: Product) => left.name.localeCompare(right.name, "es")
   const byPrice = (left: Product, right: Product) =>
     summarizePrice(left).amount - summarizePrice(right).amount
-  const byDate = (left: Product, right: Product) =>
-    (right.createdAt ?? "").localeCompare(left.createdAt ?? "")
+  const createdTime = (product: Product) => {
+    const stamp = Date.parse(product.createdAt ?? "")
+    return Number.isFinite(stamp) ? stamp : 0
+  }
+  const byDate = (left: Product, right: Product) => createdTime(right) - createdTime(left)
 
   switch (sort) {
     case "az":
@@ -50,7 +53,7 @@ export function sortProducts(products: Product[], sort: ProductSort): Product[] 
       return copy.sort((left, right) => byPin(left, right) || byDate(left, right))
     case "relevance":
       return copy.sort(
-        (left, right) => byPin(left, right) || left.rank - right.rank || byDate(left, right),
+        (left, right) => byPin(left, right) || byDate(left, right) || left.rank - right.rank,
       )
   }
 }

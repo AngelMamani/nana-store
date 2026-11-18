@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>NANA</string>
+	<string>NaNa Admin</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>NANA</string>
+	<string>nana_store</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -27,9 +27,11 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>NaNa Admin usa la cámara para escanear códigos de barras.</string>
+	<string>NaNa Admin usa la cámara para escanear códigos y fotos de productos.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>NaNa Admin pide el micrófono porque la cámara del WebView lo exige al escanear.</string>
+	<string>NaNa Admin usa el micrófono junto a la cámara al tomar fotos o videos.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>NaNa Admin usa la galería para elegir fotos de productos.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>NaNa Admin usa la ubicación para encontrar la impresora Bluetooth.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
