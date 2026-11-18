@@ -34,6 +34,7 @@ export function ProductCard({ product }: { product: Product }) {
     <article className="product-card">
       <Link className="product-card__link" to={`/p/${product.id}`}>
         <div className="product-card__media">
+          {product.pin ? <span className="pin-badge">DESTACADO</span> : null}
           {price.offer && <span className="offer-badge">OFERTA</span>}
           {product.image ? (
             <img src={product.image} alt="" />

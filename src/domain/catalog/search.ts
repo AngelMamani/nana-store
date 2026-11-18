@@ -29,6 +29,7 @@ export function searchProducts(products: Product[], query: string): Product[] {
 
 export function sortProducts(products: Product[], sort: ProductSort): Product[] {
   const copy = [...products]
+  const byPin = (left: Product, right: Product) => Number(Boolean(right.pin)) - Number(Boolean(left.pin))
   const byName = (left: Product, right: Product) => left.name.localeCompare(right.name, "es")
   const byPrice = (left: Product, right: Product) =>
     summarizePrice(left).amount - summarizePrice(right).amount
@@ -37,16 +38,18 @@ export function sortProducts(products: Product[], sort: ProductSort): Product[] 
 
   switch (sort) {
     case "az":
-      return copy.sort(byName)
+      return copy.sort((left, right) => byPin(left, right) || byName(left, right))
     case "za":
-      return copy.sort((left, right) => byName(right, left))
+      return copy.sort((left, right) => byPin(left, right) || byName(right, left))
     case "price-asc":
-      return copy.sort(byPrice)
+      return copy.sort((left, right) => byPin(left, right) || byPrice(left, right))
     case "price-desc":
-      return copy.sort((left, right) => byPrice(right, left))
+      return copy.sort((left, right) => byPin(left, right) || byPrice(right, left))
     case "newest":
-      return copy.sort(byDate)
+      return copy.sort((left, right) => byPin(left, right) || byDate(left, right))
     case "relevance":
-      return copy.sort((left, right) => left.rank - right.rank || byDate(left, right))
+      return copy.sort(
+        (left, right) => byPin(left, right) || left.rank - right.rank || byDate(left, right),
+      )
   }
 }

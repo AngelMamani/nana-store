@@ -102,37 +102,20 @@ export function AdminBarcodeScan({
       }
     }
 
-    async function openCamera() {
-      const attempts: MediaStreamConstraints[] = [
-        {
-          audio: false,
-          video: {
-            facingMode: { ideal: "environment" },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-        },
-        { audio: false, video: { facingMode: "environment" } },
-        { audio: false, video: true },
-      ]
-      let lastError: unknown
-      for (const constraints of attempts) {
-        try {
-          return await navigator.mediaDevices.getUserMedia(constraints)
-        } catch (error) {
-          lastError = error
-        }
-      }
-      throw lastError
-    }
-
     async function start() {
       if (!navigator.mediaDevices?.getUserMedia) {
         setMessage("Este dispositivo no permite usar la cámara.")
         return
       }
       try {
-        stream = await openCamera()
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            facingMode: { ideal: "environment" },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+        })
         if (stopped) {
           stream.getTracks().forEach((track) => track.stop())
           return

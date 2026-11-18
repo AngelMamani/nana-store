@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { useNavigate } from "react-router-dom"
 import { formatPen } from "../../domain/catalog/money.ts"
 import { summarizePrice } from "../../domain/catalog/pricing.ts"
@@ -33,10 +33,21 @@ export function AdminProductsPage() {
   const [categoryId, setCategoryId] = useState("all")
   const [view, setView] = useState<ProductView>(readView)
   const [page, setPage] = useState(1)
+  const [narrow, setNarrow] = useState(() => window.matchMedia("(max-width: 767px)").matches)
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)")
+    const sync = () => setNarrow(media.matches)
+    media.addEventListener("change", sync)
+    return () => media.removeEventListener("change", sync)
+  }, [])
 
   const filtered = useMemo(() => {
     const found = searchProducts(products, query)
-    return categoryId === "all" ? found : found.filter((product) => product.categoryId === categoryId)
+    const scoped = categoryId === "all" ? found : found.filter((product) => product.categoryId === categoryId)
+    return [...scoped].sort(
+      (left, right) => Number(Boolean(right.pin)) - Number(Boolean(left.pin)) || left.name.localeCompare(right.name, "es"),
+    )
   }, [products, query, categoryId])
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
@@ -58,14 +69,8 @@ export function AdminProductsPage() {
     navigate("/admin/productos/nuevo")
   }
 
-  async function editProduct(product: Product) {
-    const ok = await confirmAdminAction({
-      title: "Editar producto",
-      text: `¿Abrir “${product.name}” para cambiar precio, stock o foto?`,
-      confirmText: "Editar",
-      icon: "info",
-    })
-    if (ok) navigate(`/admin/productos/${product.id}`)
+  function editProduct(product: Product) {
+    navigate(`/admin/productos/${product.id}`)
   }
 
   async function remove(product: Product) {
@@ -130,6 +135,31 @@ export function AdminProductsPage() {
             ))}
           </select>
         </label>
+        <div className="admin-products-chips" role="tablist" aria-label="Categorías">
+          <button
+            type="button"
+            className={categoryId === "all" ? "is-on" : ""}
+            onClick={() => {
+              setCategoryId("all")
+              setPage(1)
+            }}
+          >
+            Todas
+          </button>
+          {categories.map((category) => (
+            <button
+              key={category.id}
+              type="button"
+              className={categoryId === category.id ? "is-on" : ""}
+              onClick={() => {
+                setCategoryId(category.id)
+                setPage(1)
+              }}
+            >
+              {category.name}
+            </button>
+          ))}
+        </div>
         <div className="admin-products-views" role="group" aria-label="Modo de vista">
           <button
             type="button"
@@ -160,14 +190,14 @@ export function AdminProductsPage() {
           <strong>No hay prendas con ese filtro</strong>
           <p>Prueba otra búsqueda o crea un producto nuevo.</p>
         </section>
-      ) : view === "cards" ? (
-        <section className="admin-products-grid">
+      ) : narrow || view === "cards" ? (
+        <section className={`admin-products-grid${narrow ? " is-mobile" : ""}`}>
           {visible.map((product) => (
             <ProductCard
               key={product.id}
               product={product}
               categoryName={categories.find((item) => item.id === product.categoryId)?.name}
-              onEdit={() => void editProduct(product)}
+              onEdit={() => editProduct(product)}
               onRemove={() => void remove(product)}
             />
           ))}
@@ -211,7 +241,7 @@ export function AdminProductsPage() {
                       </td>
                       <td>
                         <div className="admin-products-actions">
-                          <button type="button" title="Editar" onClick={() => void editProduct(product)}>
+                          <button type="button" title="Editar" onClick={() => editProduct(product)}>
                             <Glyph name="edit" />
                           </button>
                           <button type="button" className="is-danger" title="Eliminar" onClick={() => void remove(product)}>
@@ -248,6 +278,11 @@ export function AdminProductsPage() {
           </div>
         </nav>
       )}
+
+      <button type="button" className="admin-products-fab" onClick={createProduct}>
+        <Glyph name="plus" />
+        Nuevo
+      </button>
     </div>
   )
 }
@@ -266,21 +301,45 @@ function ProductCard({
   const price = summarizePrice(product)
   const stock = productStock(product)
   return (
-    <article className="admin-product-card">
+    <article
+      className="admin-product-card"
+      role="button"
+      tabIndex={0}
+      onClick={onEdit}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault()
+          onEdit()
+        }
+      }}
+    >
       <div className="admin-product-card__media">
         {product.image ? <img src={product.image} alt="" /> : <span className="admin-product-card__ph"><Glyph name="shirt" /></span>}
-        {price.offer && <em>Oferta</em>}
+        {product.pin ? <em className="is-pin">Destacado</em> : null}
+        {price.offer ? <em>Oferta</em> : null}
       </div>
       <div className="admin-product-card__body">
-        <p>{categoryName ?? "Sin categoría"}</p>
+        <div className="admin-product-card__tags">
+          <p>{categoryName ?? "Sin categoría"}</p>
+          {product.pin ? <i>Destacado</i> : null}
+          {price.offer ? <i className="is-offer">Oferta</i> : null}
+        </div>
         <h2>{product.name}</h2>
-        <strong>
-          {price.from ? "Desde " : ""}
-          {formatPen(price.amount)}
-        </strong>
+        {product.code ? <span className="admin-product-card__sku">{product.code}</span> : null}
+        <div className="admin-product-card__price">
+          <strong>
+            {price.from ? "Desde " : ""}
+            {formatPen(price.amount)}
+          </strong>
+          {price.compareAt ? <s>{formatPen(price.compareAt)}</s> : null}
+        </div>
         <div className="admin-product-card__meta">
           <StockBadge stock={stock} />
-          <div className="admin-products-actions">
+          <div
+            className="admin-products-actions"
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => event.stopPropagation()}
+          >
             <button type="button" title="Editar" onClick={onEdit}>
               <Glyph name="edit" />
             </button>
